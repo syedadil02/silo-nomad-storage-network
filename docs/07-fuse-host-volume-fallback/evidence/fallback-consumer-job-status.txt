@@ -1,0 +1,28 @@
+ID            = consumer-fuse-fallback
+Name          = consumer-fuse-fallback
+Submit Date   = 2026-10-28T03:49:15+05:30
+Type          = service
+Priority      = 50
+Datacenters   = dc1
+Namespace     = default
+Node Pool     = default
+Status        = running
+Periodic      = false
+Parameterized = false
+
+Summary
+Task Group  Queued  Starting  Running  Failed  Complete  Lost  Unknown
+consumer    0       0         1        0       0         0     0
+
+Latest Deployment
+ID          = 5ab69988
+Status      = successful
+Description = Deployment completed successfully
+
+Deployed
+Task Group  Desired  Placed  Healthy  Unhealthy  Progress Deadline
+consumer    1        1       1        0          2026-10-28T03:59:25+05:30
+
+Allocations
+ID        Node ID   Task Group  Version  Desired  Status   Created  Modified
+dc657846  248e62bb  consumer    0        run      running  36s ago  25s ago

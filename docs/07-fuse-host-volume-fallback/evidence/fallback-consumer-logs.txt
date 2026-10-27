@@ -1,0 +1,13 @@
+=== Static Host FUSE Fallback Consumer Starting ===
+total 4
+drwxrwxrwx    1 root     root             0 Jan  1  1970 .
+drwxr-xr-x    1 root     root            26 Oct 27 22:19 ..
+-rw-r-----    1 root     root            21 Oct 27 21:31 csi-test.txt
+-rw-r-----    1 root     root            20 Oct 27 21:31 test.txt
+drwxr-x---    1 root     root             0 Oct 27 22:12 vol-fio-bench
+drwxr-x---    1 root     root             0 Oct 27 21:46 vol-multi-writer
+drwxr-x---    1 root     root             0 Oct 27 21:42 vol-single-alias
+drwxr-x---    1 root     root             0 Oct 27 21:43 vol-single-direct
+Writing test payload from fallback consumer...
+Verification readback:
+Payload written via Static Host FUSE Fallback at Tue Oct 27 22:19:23 UTC 2026
