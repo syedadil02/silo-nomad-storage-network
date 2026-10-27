@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${EUID}" -ne 0 ]; then
+  echo "Error: Run with 'sudo ./scripts/nomad-reset'." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${REPO_ROOT}"
+
+START=$(date +%s)
+"${SCRIPT_DIR}/nomad-down" || true
+sleep 1
+
+# Lazy unmount all allocations and mounts under /tmp/nomad-lab
+grep -o '/tmp/nomad-lab[^ ]*' /proc/mounts 2>/dev/null | sort -r | while read -r mnt; do
+  umount -l "$mnt" 2>/dev/null || true
+done || true
+
+fusermount3 -uz /tmp/nomad-lab/volumes/fuse-fallback 2>/dev/null || true
+umount -l /tmp/nomad-lab/volumes/nfs-mount 2>/dev/null || true
+
+rm -rf /tmp/nomad-lab
+"${SCRIPT_DIR}/nomad-up"
+echo "Rebuild completed in $(($(date +%s) - START)) seconds."

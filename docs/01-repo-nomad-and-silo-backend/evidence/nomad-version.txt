@@ -1,0 +1,3 @@
+Nomad v1.7.5
+BuildDate 2024-02-13T15:10:13Z
+Revision 5f5d4646198d09b8f4f6cb90fb5d50b53fa328b8

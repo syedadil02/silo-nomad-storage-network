@@ -1,0 +1,32 @@
+=== 1. Setting alias and querying admin info ===
+=== 1. Setting alias and querying admin info ===
+Added `local` successfully.
+Connected to Silo successfully.
+●  127.0.0.1:9000
+   Uptime: now
+   Version: 2026-10-26T00:00:00Z
+   Network: 1/1 OK 
+   Drives: 1/1 OK 
+   Pool: 1
+
+┌──────┬───────────────────────┬─────────────────────┬──────────────┐
+│ Pool │ Drives Usage          │ Erasure stripe size │ Erasure sets │
+│ 1st  │ 0.5% (total: 7.7 GiB) │ 1                   │ 1            │
+└──────┴───────────────────────┴─────────────────────┴──────────────┘
+
+1 drive online, 0 drives offline, EC:0
+=== 2. Creating bucket nomad-tests ===
+Bucket created successfully `local/nomad-tests`.
+=== 3. Putting and Getting test object ===
+`/tmp/test.txt` -> `local/nomad-tests/test.txt`
+┌───────┬─────────────┬──────────┬────────────┐
+│ Total │ Transferred │ Duration │ Speed      │
+│ 20 B  │ 20 B        │ 00m00s   │ 4.67 KiB/s │
+└───────┴─────────────┴──────────┴────────────┘
+silo-nomad-verified
+=== 4. Creating dedicated CSI service account ===
+Access Key: <CSI_ACCESS_KEY>
+Secret Key: <CSI_SECRET_KEY>
+Expiration: NONE
+Name: 
+Description: 

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${EUID}" -ne 0 ]; then
+  echo "Error: Run with 'sudo ./scripts/nomad-down'." >&2
+  exit 1
+fi
+
+LAB_DIR="/tmp/nomad-lab"
+for pidf in "${LAB_DIR}/client2.pid" "${LAB_DIR}/client1.pid"; do
+  if [ -f "$pidf" ]; then
+    PID=$(cat "$pidf")
+    if kill -0 "$PID" 2>/dev/null; then
+      kill "$PID" 2>/dev/null || true
+      # Wait up to 15s for graceful Raft/Serf socket release before SIGKILL
+      for _ in {1..30}; do
+        kill -0 "$PID" 2>/dev/null || break
+        sleep 0.5
+      done
+      kill -9 "$PID" 2>/dev/null || true
+    fi
+    rm -f "$pidf"
+  fi
+done
+
+# Clean up running containers managed by Nomad
+podman rm -f $(podman ps -q) 2>/dev/null || true
+
+echo "Nomad agents stopped and sockets released."

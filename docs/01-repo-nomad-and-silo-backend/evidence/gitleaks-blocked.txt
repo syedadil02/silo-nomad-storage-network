@@ -1,0 +1,22 @@
+Detect hardcoded secrets.................................................Failed
+- hook id: gitleaks
+- exit code: 1
+
+○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+Finding:     [1;3;mREDACTED[0mklmn
+Secret:      [1;3;mREDACTED[0m
+RuleID:      github-pat
+Entropy:     5.221928
+File:        test_fake_secret.txt
+Line:        1
+Fingerprint: test_fake_secret.txt:github-pat:1
+
+[90m2:23AM[0m [32mINF[0m 1 commits scanned.
+[90m2:23AM[0m [32mINF[0m scan completed in 3.51ms
+[90m2:23AM[0m [31mWRN[0m leaks found: 1
+

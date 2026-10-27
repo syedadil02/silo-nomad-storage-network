@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${EUID}" -ne 0 ]; then
+  echo "Error: Run with 'sudo ./scripts/nomad-up' (required for rootful Podman socket & CSI host mounts)." >&2
+  exit 1
+fi
+
+# Ensure podman system service is running if not active
+if ! curl -s --unix-socket /run/podman/podman.sock http://d/_ping >/dev/null 2>&1; then
+  mkdir -p /run/podman
+  nohup podman system service --time=0 unix:///run/podman/podman.sock </dev/null >/tmp/podman-service.log 2>&1 &
+  sleep 1
+fi
+
+# Preserve user binary paths under sudo secure_path
+if [ -n "${SUDO_USER:-}" ]; then
+  USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+  export PATH="${PATH}:/usr/local/bin:${USER_HOME}/.local/bin:${USER_HOME}/bin"
+fi
+
+LAB_DIR="/tmp/nomad-lab"
+mkdir -p "${LAB_DIR}/client1" "${LAB_DIR}/client2" \
+         "${LAB_DIR}/volumes/silo-data" \
+         "${LAB_DIR}/volumes/local-ssd-bench" \
+         "${LAB_DIR}/volumes/nfs-mount" \
+         "${LAB_DIR}/volumes/fuse-fallback"
+
+chcon -Rt container_file_t "${LAB_DIR}/volumes" 2>/dev/null || true
+chmod -R 777 "${LAB_DIR}/volumes" 2>/dev/null || true
+
+echo "[1/3] Starting Nomad Agent 1 (Server + Client 1)..."
+nohup nomad agent -config=nomad/agents/client1.hcl > "${LAB_DIR}/client1.log" 2>&1 &
+echo $! > "${LAB_DIR}/client1.pid"
+
+echo "[2/3] Starting Nomad Agent 2 (Client 2)..."
+nohup nomad agent -config=nomad/agents/client2.hcl > "${LAB_DIR}/client2.log" 2>&1 &
+echo $! > "${LAB_DIR}/client2.pid"
+
+echo "[3/3] Waiting for cluster leader and 2 ready client nodes..."
+for i in {1..30}; do
+  if [ "$(nomad node status 2>/dev/null | grep -c 'ready' || true)" -ge 2 ]; then
+    echo "Both Nomad clients are READY."
+    nomad node status
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "ERROR: Timed out waiting for Nomad clients. Check ${LAB_DIR}/client1.log and client2.log" >&2
+exit 1

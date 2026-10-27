@@ -1,0 +1,3 @@
+ID        Node Pool  DC   Name            Class   Drain  Eligibility  Status
+39811251  default    dc1  nomad-client-1  <none>  false  eligible     ready
+429be7a4  default    dc1  nomad-client-2  <none>  false  eligible     ready

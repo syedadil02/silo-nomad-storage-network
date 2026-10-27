@@ -1,0 +1,7 @@
+driver.docker                    = 1
+driver.docker.bridge_ip          = 10.88.0.1
+driver.docker.os_type            = linux
+driver.docker.privileged.enabled = true
+driver.docker.runtimes           = crun,crun-vm,crun-wasm,kata,krun,ocijail,runc,runj,runsc,youki
+driver.docker.version            = 5.8.9
+driver.docker.volumes.enabled    = true
