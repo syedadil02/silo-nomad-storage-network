@@ -1,0 +1,7 @@
+.env
+*.secret.hcl
+*.vars.hcl
+/tmp/
+*.pid
+*.log
+.nomad-data/
