@@ -35,7 +35,7 @@ Establish a reproducible, clean local Nomad environment comprising a single-serv
   ```
 * **Expected Result:** Gitleaks pre-commit hook intercepts the staged GitHub PAT token and aborts the commit with exit code 1.
 * **Actual Result:** **PASS**. Gitleaks flagged `Finding: REDACTED RuleID: github-pat leaks found: 1` and aborted the commit.
-* **Evidence:** Raw output captured in [`evidence/gitleaks-blocked.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/01-repo-nomad-and-silo-backend/evidence/gitleaks-blocked.txt); visual hook intercept verified in `screenshots/gitleaks-blocked.png`.
+* **Evidence:** Raw command output captured in [`evidence/gitleaks-blocked.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/01-repo-nomad-and-silo-backend/evidence/gitleaks-blocked.txt).
 
 ### Step 2: Bootstrap 2-Node Nomad Cluster
 * **Command:**
