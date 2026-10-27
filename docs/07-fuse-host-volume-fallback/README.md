@@ -1,134 +1,73 @@
 # Sub-Task 7: Static Host-Managed FUSE Volume Fallback (DEV-939)
 
-## 1. Executive Summary
+## Goal
 
-While Nomad CSI (Sub-Tasks 3 through 6) provides dynamic volume provisioning and scheduler-aware attachment, it introduces significant operational complexity: split controller/node topologies, gRPC socket maintenance, and susceptibility to userspace FUSE crashes.
-
-This sub-task implements and validates a **Static Host-Managed FUSE Fallback**:
-* **Mechanism:** Mount the Silo S3 bucket directly onto the Linux host at `/tmp/nomad-lab/volumes/fuse-fallback` using `s3fs` with bidirectional mount propagation (`:rshared`), requiring zero host OS modifications or layering.
-* **Orchestration:** Expose the path as a standard Nomad **Host Volume** (`host_volume "fuse-fallback"`) in the client configuration, allowing ordinary Nomad workloads to mount S3 storage via `type = "host"`.
-* **Verification:** Deployed [`nomad/jobs/consumer-fuse-fallback.nomad`](file:///var/home/syedadil/personal/silo-nomad-storage-network/nomad/jobs/consumer-fuse-fallback.nomad), wrote a test payload from inside the container, and verified persistence in the Silo backend bucket.
+Implement and validate a resilient **Static Host-Managed FUSE Fallback** pattern:
+1. Mount the Silo S3 bucket directly onto the Linux host at `/tmp/nomad-lab/volumes/fuse-fallback` using containerized `s3fs` with bidirectional mount propagation (`:rshared`), requiring zero host package installations on immutable OS distributions.
+2. Expose the host path as a standard Nomad **Host Volume** (`host_volume "fuse-fallback"`).
+3. Validate end-to-end workload consumption, payload persistence, and compare operational reliability against the Nomad CSI plugin driver.
 
 ---
 
-## 2. Architecture & Mount Flow
+## Environment
 
-```mermaid
-flowchart TD
-    subgraph Host Infrastructure
-        S3FS["Containerized s3fs FUSE Daemon<br>(scripts/setup-fuse-fallback.sh)<br>Image: v1.0.4 pinned"]
-        PATH["Host Directory<br>/tmp/nomad-lab/volumes/fuse-fallback<br>(rshared mount propagation)"]
-    end
-
-    subgraph Object Storage Substrate
-        SILO["Silo S3 Server<br>http://127.0.0.1:9000<br>Bucket: nomad-tests"]
-    end
-
-    subgraph Nomad Client Agent
-        CLIENT["Nomad Client (client1.hcl)<br>host_volume 'fuse-fallback'"]
-        TASK["consumer-fuse-fallback Job<br>Volume: type='host' source='fuse-fallback'"]
-    end
-
-    S3FS -->|HTTP REST S3 API| SILO
-    S3FS -->|FUSE Mount| PATH
-    PATH -->|Declared as Host Volume| CLIENT
-    CLIENT -->|Bind Mount /mnt/fuse-fallback| TASK
-```
+* **Nomad Version:** `Nomad v1.7.5`
+* **Fallback FUSE Daemon:** Containerized `s3fs v1.89` via `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4@sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`
+* **Consumer Workload Image:** `docker.io/library/alpine:3.20@sha256:c64c687cbea9300178b30c95835354e34c4e4febc4badfe27102879de0483b5e`
+* **Silo Backend Image:** `docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z@sha256:003925ecebdcd659494621de84984f20aac2ca0ce88684ba23bb1e38b8e0db3c`
+* **Host Operating System:** Fedora Silverblue 44 (Linux `7.2.11-200.fc44.x86_64`)
+* **Date of Evaluation:** October 28, 2026
 
 ---
 
-## 3. Specifications & Script Implementation
+## Prerequisites
 
-### 1. Host Mount Automation (`scripts/setup-fuse-fallback.sh`)
-* Dynamically fetches S3 access keys from `nomadVar "nomad/jobs/csi-s3-plugin"`.
-* Runs `s3fs` inside a managed container with `--device /dev/fuse`, `--privileged`, and `-v ${MOUNT_DIR}:/mnt/fuse-fallback:rshared`.
-* Bypasses host package installation entirely (solving the Fedora Silverblue read-only `/usr` constraint).
-
-### 2. Nomad Host Volume Declaration (`nomad/agents/client1.hcl`)
-```hcl
-client {
-  host_volume "fuse-fallback" {
-    path      = "/tmp/nomad-lab/volumes/fuse-fallback"
-    read_only = false
-  }
-}
-```
-
-### 3. Workload Specification (`nomad/jobs/consumer-fuse-fallback.nomad`)
-```hcl
-job "consumer-fuse-fallback" {
-  datacenters = ["dc1"]
-  type        = "service"
-
-  group "consumer" {
-    count = 1
-
-    volume "fallback_vol" {
-      type      = "host"
-      source    = "fuse-fallback"
-      read_only = false
-    }
-
-    task "app" {
-      driver = "docker"
-
-      config {
-        image        = "docker.io/library/alpine:3.20@sha256:c64c687cbea9300178b30c95835354e34c4e4febc4badfe27102879de0483b5e"
-        network_mode = "host"
-        privileged   = true
-      }
-
-      volume_mount {
-        volume      = "fallback_vol"
-        destination = "/mnt/fuse-fallback"
-        read_only   = false
-      }
-    }
-  }
-}
-```
+* Active Nomad cluster with `nomad-client-1` configured with `host_volume "fuse-fallback"`.
+* Running Silo S3 server on `http://127.0.0.1:9000` with bucket `nomad-tests`.
+* Nomad Variable `nomad/jobs/csi-s3-plugin` populated with credentials.
+* Host FUSE automation script [`scripts/setup-fuse-fallback.sh`](file:///var/home/syedadil/personal/silo-nomad-storage-network/scripts/setup-fuse-fallback.sh).
 
 ---
 
-## 4. Verification Evidence
+## Step-by-Step Procedure & Verification
 
-### 1. Host Mount Verification
-```
-$ grep 'fuse-fallback' /proc/mounts
-s3fs /tmp/nomad-lab/volumes/fuse-fallback fuse.s3fs rw,nosuid,nodev,relatime,user_id=0,group_id=0,allow_other 0 0
+### Step 1: Mount Silo S3 Bucket to Host via Containerized FUSE
+* **Command:**
+  ```bash
+  sudo ./scripts/setup-fuse-fallback.sh start
+  grep 'fuse-fallback' /proc/mounts
+  ls -la /tmp/nomad-lab/volumes/fuse-fallback
+  ```
+* **Expected Result:** Container `silo-fuse-fallback` launches with `--device /dev/fuse` and mounts bucket `nomad-tests` to `/tmp/nomad-lab/volumes/fuse-fallback` with `:rshared` propagation.
+* **Actual Result:** **PASS**. Mount active in `/proc/mounts` and directories visible on host.
+* **Evidence:** Captured in [`evidence/host-fuse-mount.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/host-fuse-mount.txt).
 
-$ ls -la /tmp/nomad-lab/volumes/fuse-fallback
--rw-r-----. 1 root root  21 Oct 28 03:01 csi-test.txt
--rw-r-----. 1 root root  20 Oct 28 03:01 test.txt
-drwxr-x---. 1 root root   0 Oct 28 03:42 vol-fio-bench
-drwxr-x---. 1 root root   0 Oct 28 03:16 vol-multi-writer
-drwxr-x---. 1 root root   0 Oct 28 03:12 vol-single-alias
-```
-*(Evidence: [`docs/07-fuse-host-volume-fallback/evidence/host-fuse-mount.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/host-fuse-mount.txt))*
+### Step 2: Deploy Consumer Workload Claiming Host Volume
+* **Command:**
+  ```bash
+  nomad job run nomad/jobs/consumer-fuse-fallback.nomad
+  ALLOC_ID=$(nomad job status consumer-fuse-fallback | grep -E 'consumer +0 +run' | awk '{print $1}')
+  nomad alloc logs "$ALLOC_ID" app
+  ```
+* **Expected Result:** Workload claims volume `type = "host"`, mounts `/mnt/fuse-fallback`, writes a timestamped verification payload, and reads it back.
+* **Actual Result:** **PASS**. Container ran successfully and wrote `fallback-consumer-proof.txt`.
+* **Evidence:** Captured in [`evidence/fallback-consumer-job-status.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/fallback-consumer-job-status.txt) and [`evidence/fallback-consumer-logs.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/fallback-consumer-logs.txt).
 
-### 2. Workload Execution Logs
-```
-$ nomad alloc logs dc657846 app
-=== Static Host FUSE Fallback Consumer Starting ===
-Writing test payload from fallback consumer...
-Verification readback:
-Payload written via Static Host FUSE Fallback at Tue Oct 27 22:19:23 UTC 2026
-```
-*(Evidence: [`docs/07-fuse-host-volume-fallback/evidence/fallback-consumer-logs.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/fallback-consumer-logs.txt))*
-
-### 3. Silo S3 Backend Persistence
-```
-$ mc ls local/nomad-tests/fallback-consumer-proof.txt
-[2026-10-28 03:49:23 IST]    78B STANDARD fallback-consumer-proof.txt
-
-$ mc cat local/nomad-tests/fallback-consumer-proof.txt
-Payload written via Static Host FUSE Fallback at Tue Oct 27 22:19:23 UTC 2026
-```
-*(Evidence: [`docs/07-fuse-host-volume-fallback/evidence/silo-fallback-proof.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/silo-fallback-proof.txt))*
+### Step 3: Verify Persistence in Silo S3 Object Store
+* **Command:**
+  ```bash
+  mc ls local/nomad-tests/fallback-consumer-proof.txt
+  mc cat local/nomad-tests/fallback-consumer-proof.txt
+  ```
+* **Expected Result:** Payload written inside the consumer container exists in the Silo S3 bucket.
+* **Actual Result:** **PASS**. Object `fallback-consumer-proof.txt` (78 bytes) verified in Silo backend.
+* **Evidence:** Captured in [`evidence/silo-fallback-proof.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/07-fuse-host-volume-fallback/evidence/silo-fallback-proof.txt).
 
 ---
 
-## 5. Comparative Trade-Off Matrix: Nomad CSI vs. Static Host FUSE
+## Results Table
+
+### Comparative Trade-Off Matrix: Nomad CSI vs. Static Host FUSE
 
 | Architectural Dimension | Nomad CSI (`mwantia/nomad-csi-s3-plugin`) | Static Host FUSE Fallback (`s3fs` + Host Volume) |
 |---|---|---|
@@ -139,13 +78,25 @@ Payload written via Static Host FUSE Fallback at Tue Oct 27 22:19:23 UTC 2026
 | **Multi-Node Mobility** | **Seamless:** Volumes claimable on any node running the CSI node plugin. | **Constrained:** Workload must be pinned (`constraint`) to the specific node(s) where host volume is mounted. |
 | **Software Maturity** | **Experimental:** Upstream plugin is a single-author fork without maintenance since Oct 2024. | **Production-Proven:** Uses official, battle-tested `s3fs-fuse` directly with standard Nomad features. |
 
-### Architectural Conclusion
-For mission-critical production environments where an organization lacks an internal engineering team to maintain the experimental CSI plugin, **Static Host FUSE Fallback is the recommended operational pattern**. It provides identical POSIX filesystem access to Silo S3 buckets while entirely eliminating CSI controller race conditions and plugin gRPC socket failures.
+---
+
+## Findings & Problems Resolved
+
+1. **Mount Propagation on Immutable Linux:** On Fedora Silverblue, package installations require host layering and reboots. By running `s3fs` inside a privileged container with bidirectional bind propagation (`:rshared`), the mount point is projected onto the host VFS without modifying the underlying OS.
+2. **Elimination of CSI Controller Hazards:** Host FUSE bypasses Nomad CSI controller elections, gRPC socket serialization, and plugin lifecycle complexity entirely.
+3. **Production Recommendation:** For production teams lacking dedicated engineers to vendor and patch experimental CSI Go code, Static Host FUSE provides identical POSIX-over-S3 functionality with far higher reliability.
 
 ---
 
-## 6. Reproduction Steps
+## Conclusion
 
+The Static Host-Managed FUSE Fallback is fully operational and verified. It provides equivalent POSIX-over-S3 capabilities to container workloads using native Nomad `host_volume` declarations, eliminating CSI socket management and controller election hazards. It stands as the primary recommended deployment pattern for production environments.
+
+---
+
+## How to Reproduce and Clean Up
+
+### Reproduce
 ```bash
 # 1. Mount Silo bucket directly to host volume path
 sudo ./scripts/setup-fuse-fallback.sh start
@@ -155,7 +106,10 @@ nomad job run nomad/jobs/consumer-fuse-fallback.nomad
 
 # 3. Verify writeback in Silo S3 bucket
 mc cat local/nomad-tests/fallback-consumer-proof.txt
+```
 
-# 4. Teardown fallback mount when finished
+### Clean Up
+```bash
+nomad job stop -purge consumer-fuse-fallback
 sudo ./scripts/setup-fuse-fallback.sh stop
 ```

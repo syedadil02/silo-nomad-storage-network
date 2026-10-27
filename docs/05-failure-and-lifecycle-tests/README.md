@@ -1,110 +1,123 @@
 # Sub-Task 5: Chaos, Failure Modes & Node Drain Rescheduling (DEV-937)
 
-## 1. Executive Summary
+## Goal
 
-Storage systems must be resilient to backend outages, agent crashes, and routine node maintenance. This sub-task subjects the **Silo + Nomad CSI S3** integration to three distinct chaos scenarios:
-1. **Scenario A (Backend Outage):** Stopping the underlying Silo S3 object storage server and evaluating workload behavior before and after recovery.
-2. **Scenario B (Plugin Daemon Crash):** Restarting the CSI node mounter daemon to evaluate FUSE userspace socket severance.
-3. **Scenario C (Node Drain Rescheduling):** Evicting client nodes with `nomad node drain` to verify cross-node volume detachment, re-scheduling, and data persistence.
+Subject the Silo + Nomad CSI S3 storage infrastructure to three real-world operational chaos and lifecycle failure scenarios:
+1. **Backend Outage:** Stopping the underlying Silo S3 server and evaluating workload behavior before and after backend restoration.
+2. **CSI Daemon Crash:** Terminating the CSI node mounter daemon to characterize userspace FUSE socket severance and in-place restart behavior.
+3. **Node Drain Rescheduling:** Evicting a client node via `nomad node drain` to verify cross-node volume detachment, re-scheduling, and data durability.
 
-### Chaos Findings Summary
+---
 
-| Chaos Scenario | Fault Injected | Observed Workload Behavior | Recovery Mechanism | Recovery Status |
+## Environment
+
+* **Nomad Version:** `Nomad v1.7.5`
+* **CSI Plugin Image:** `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4@sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`
+* **Silo Backend Image:** `docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z@sha256:003925ecebdcd659494621de84984f20aac2ca0ce88684ba23bb1e38b8e0db3c`
+* **Consumer Image:** `docker.io/library/alpine:3.20@sha256:c64c687cbea9300178b30c95835354e34c4e4febc4badfe27102879de0483b5e`
+* **Host Operating System:** Fedora Silverblue 44 (Linux `7.2.11-200.fc44.x86_64`)
+* **Local Machine:** Physical host running 1 Server + 2 Clients (`nomad-client-1`, `nomad-client-2`)
+* **Date of Evaluation:** October 28, 2026
+
+---
+
+## Prerequisites
+
+* Active Nomad cluster with healthy `silo-s3-csi` controller and node daemons.
+* Operational Silo S3 backend on `http://127.0.0.1:9000`.
+* Active consumer workload (`consumer-single-writer`) claiming `silo-vol-alias`.
+
+---
+
+## Step-by-Step Procedure & Verification
+
+### Step 1: Scenario A - Backend Outage & Recovery
+* **Command:**
+  ```bash
+  nomad job stop silo
+  nomad alloc exec "$CONSUMER_ALLOC" sh -c 'cat /data/csi-message.txt' || true
+  nomad job run nomad/jobs/silo.nomad
+  nomad alloc exec "$CONSUMER_ALLOC" sh -c 'cat /data/csi-message.txt'
+  nomad alloc exec "$CONSUMER_ALLOC" sh -c 'echo "written after backend recovery" > /data/recovery-test.txt'
+  mc ls local/nomad-tests/vol-single-alias/recovery-test.txt
+  ```
+* **Expected Result:** Consumer operations return `EIO` (I/O error) while Silo is offline. Once Silo restarts, `s3fs` automatically resumes read and write operations without requiring a container restart.
+* **Actual Result:** **PASS**. Read returned `cat: can't open '/data/csi-message.txt': I/O error` during the outage. Immediately upon Silo restoration, reads and new writes succeeded seamlessly.
+* **Evidence:** Captured in [`evidence/backend-stoppage-eio.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/backend-stoppage-eio.txt) and [`evidence/backend-recovery.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/backend-recovery.txt).
+
+### Step 2: Scenario B - CSI Node Plugin Crash & FUSE Disconnection
+* **Command:**
+  ```bash
+  NODE_ALLOC=$(nomad job status csi-s3-node | grep -E 'node +0 +run' | head -n 1 | awk '{print $1}')
+  nomad alloc restart "$NODE_ALLOC" plugin
+  nomad alloc exec "$CONSUMER_ALLOC" sh -c 'ls -la /data' || true
+  nomad alloc restart "$CONSUMER_ALLOC" app || true
+  ```
+* **Expected Result:** Terminating the mounter daemon severs the userspace FUSE socket. Active containers see `ENOTCONN` (Socket not connected). In-place restarts fail due to broken mount points.
+* **Actual Result:** **PASS (Failure Mode Confirmed)**. Active container returned `ls: /data: Socket not connected`. In-place restart failed with Nomad error: `API error (500): container create: transport endpoint is not connected`.
+* **Evidence:** Captured in [`evidence/plugin-restart-disconnection.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/plugin-restart-disconnection.txt).
+
+### Step 3: Scenario C - Client Node Drain & Failover Rescheduling
+* **Command:**
+  ```bash
+  nomad alloc exec "$CONSUMER_ALLOC" sh -c 'echo "Pre-drain state recorded at $(date)" > /data/failover-evidence.txt'
+  NODE_ID=$(nomad node status | grep nomad-client-1 | awk '{print $1}')
+  nomad node drain -enable -deadline 1m "$NODE_ID"
+  # Wait for rescheduling to nomad-client-2
+  NEW_ALLOC=$(nomad job status consumer-single-writer | grep -E 'writer +0 +run' | awk '{print $1}')
+  nomad alloc exec "$NEW_ALLOC" cat /data/failover-evidence.txt
+  ```
+* **Expected Result:** Draining Node 1 terminates the local consumer, detaches the volume, schedules the task group onto Node 2, stages the volume via Node 2's CSI daemon, and preserves the payload.
+* **Actual Result:** **PASS**. Workload rescheduled onto `nomad-client-2`. Pre-drain file `/data/failover-evidence.txt` was read back intact.
+* **Evidence:** Captured in [`evidence/node-drain-migration.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/node-drain-migration.txt).
+
+---
+
+## Results Table
+
+| Chaos Scenario | Injected Fault | Observed Behavior | Recovery Mechanism | Recovery Status |
 |---|---|---|---|:---:|
-| **A. Backend Outage** | Silo stopped (`nomad job stop silo`) | In-flight I/O returned POSIX `I/O error` (`EIO`). | Restarted Silo; `s3fs` automatically reconnected without container restart. | **AUTO-RECOVERED** |
-| **B. Node Plugin Crash** | `csi-s3-node` restarted | FUSE socket severed: `ls: /data: Socket not connected` (`ENOTCONN`). In-place task restart fails. | Requires fresh allocation placement or lazy unmount (`umount -l`). | **REQUIRES RESCHEDULE** |
-| **C. Node Drain** | `nomad node drain -enable` | Allocation migrated to alternate node; volume unmounted, re-staged, and remounted. | Pre-drain data (`failover-evidence.txt`) verified intact on new node. | **PERSISTENCE VERIFIED** |
+| **A. Backend Outage** | Silo stopped (`nomad job stop silo`) | Active reads returned `EIO` (`Input/output error`). | Restarted Silo; `s3fs` automatically resumed I/O without container restart. | **AUTO-RECOVERED** |
+| **B. Node Plugin Crash** | `csi-s3-node` daemon restarted | FUSE socket severed: `ls: /data: Socket not connected` (`ENOTCONN`). In-place restart failed. | Requires fresh allocation rescheduling and lazy unmount (`umount -l`). | **REQUIRES RESCHEDULE** |
+| **C. Node Drain** | `nomad node drain -enable` on Node 1 | Allocation migrated to Node 2; volume unmounted, restaged, and remounted. | Pre-drain data (`failover-evidence.txt`) verified intact on new node. | **PERSISTENCE VERIFIED** |
 
 ---
 
-## 2. Scenario A: Silo Backend Stoppage & Recovery
+## Findings & Problems Resolved
 
-```mermaid
-sequenceDiagram
-    participant App as Consumer App
-    participant FUSE as s3fs FUSE Mount
-    participant Silo as Silo S3 Backend
-
-    App->>FUSE: read /data/csi-message.txt
-    FUSE->>Silo: HTTP GET /nomad-tests/...
-    Silo-->>FUSE: 200 OK (Data payload)
-    FUSE-->>App: Return file content
-
-    Note over Silo: FAULT: nomad job stop silo
-    App->>FUSE: read /data/csi-message.txt
-    FUSE->>Silo: HTTP GET (Connection refused)
-    FUSE-->>App: EIO (Input/output error)
-
-    Note over Silo: RECOVERY: nomad job run silo.nomad
-    App->>FUSE: read /data/csi-message.txt
-    FUSE->>Silo: HTTP GET /nomad-tests/...
-    Silo-->>FUSE: 200 OK (Data payload)
-    FUSE-->>App: Return file content (Automated Recovery)
-```
-
-### Empirical Evidence
-1. **During Outage:**
-   ```
-   $ nomad alloc exec 939af0db sh -c 'cat /data/csi-message.txt'
-   cat: can't open '/data/csi-message.txt': I/O error
-   ```
-2. **Upon Silo Restoration:**
-   ```
-   $ nomad alloc exec 939af0db sh -c 'cat /data/csi-message.txt'
-   Nomad CSI Silo persistent payload verified at Tue Oct 27 22:01:21 UTC 2026
-
-   $ nomad alloc exec 939af0db sh -c 'echo "written after backend recovery" > /data/recovery-test.txt'
-   $ mc ls local/nomad-tests/vol-single-alias/recovery-test.txt
-   [2026-10-28 03:35:54 IST]    31B STANDARD recovery-test.txt
-   ```
-*(Evidence: [`docs/05-failure-and-lifecycle-tests/evidence/backend-stoppage-eio.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/backend-stoppage-eio.txt) and [`docs/05-failure-and-lifecycle-tests/evidence/backend-recovery.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/backend-recovery.txt))*
+1. **FUSE Userspace Socket Fragility:** Unlike kernel network filesystems (NFS), FUSE mounts depend on an active user-space daemon holding `/dev/fuse`. If the daemon crashes, the kernel marks the mount `ENOTCONN`. In-place container restarts fail; the allocation must be destroyed, lazily unmounted (`umount -l`), and scheduled fresh.
+2. **Storage Co-location Hazard:** Draining a client hosting both storage (Silo) and compute kills the storage backend for surviving nodes. Silo must be hosted on dedicated nodes exempt from worker drains.
+3. **Template Change Mode Policy:** Stateful backend services must configure `change_mode = "noop"` in Nomad template blocks to prevent unexpected restarts from severing client FUSE sockets.
 
 ---
 
-## 3. Scenario B: CSI Plugin Daemon Crash (FUSE Disconnection)
+## Conclusion
 
-When a CSI node plugin daemon crashes or restarts, its userspace `s3fs` and `bindfs` mounter processes terminate.
-
-### Empirical Evidence: Broken FUSE Sockets
-```
-$ nomad alloc restart 5e380334 plugin   # restart csi-s3-node daemon
-$ nomad alloc exec 939af0db sh -c 'ls -la /data'
-ls: /data: Socket not connected
-```
-
-### In-Place Restart Trap
-Attempting to restart the consumer container in-place within the same allocation failed:
-```
-API error (500): container create: statfs /tmp/nomad-lab/.../rw-file-system-single-node-writer: transport endpoint is not connected
-Exit Code: 137, Client Status: failed (Error was unrecoverable)
-```
-**Architectural Takeaway:** Unlike kernel-space network filesystems (NFS), FUSE requires an active userspace process holding the `/dev/fuse` file descriptor. If that process dies, Linux marks the mount point `ENOTCONN` (Transport endpoint is not connected). Nomad cannot start a container whose bind-mount target is in an `ENOTCONN` state; the allocation must be terminated, lazily unmounted (`umount -l`), and rescheduled.
-*(Evidence: [`docs/05-failure-and-lifecycle-tests/evidence/plugin-restart-disconnection.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/plugin-restart-disconnection.txt))*
+The Silo S3 CSI storage network demonstrates robust automatic recovery from transient backend network and server outages. However, userspace FUSE crashes sever active mount sockets, requiring automated lazy-unmount cleanups and fresh allocation rescheduling. With dedicated storage node isolation and proper drain policies, seamless workload failover and data durability are achieved.
 
 ---
 
-## 4. Scenario C: Client Node Drain & Failover Rescheduling
+## How to Reproduce and Clean Up
 
-To verify maintenance workflows:
-1. Wrote pre-drain state to `/data/failover-evidence.txt` on `nomad-client-1`.
-2. Drained `nomad-client-1`:
-   ```bash
-   nomad node drain -enable -deadline 1m 248e62bb
-   ```
-3. Nomad marked the allocation for migration, unmounted the CSI volume on Node 1, and rescheduled the task group.
+### Reproduce
+```bash
+# 1. Test backend outage and recovery
+nomad job stop silo
+nomad alloc exec "$CONSUMER_ALLOC" cat /data/csi-message.txt || true
+nomad job run nomad/jobs/silo.nomad
+nomad alloc exec "$CONSUMER_ALLOC" cat /data/csi-message.txt
 
-### Failover Verification
+# 2. Test plugin daemon crash
+NODE_ALLOC=$(nomad job status csi-s3-node | grep -E 'node +0 +run' | head -n 1 | awk '{print $1}')
+nomad alloc restart "$NODE_ALLOC" plugin
+
+# 3. Test node drain rescheduling
+NODE_ID=$(nomad node status | grep nomad-client-1 | awk '{print $1}')
+nomad node drain -enable -deadline 1m "$NODE_ID"
 ```
-$ nomad alloc exec 1dd4d97c cat /data/failover-evidence.txt
-Pre-drain state recorded at Tue Oct 27 22:09:54 UTC 2026 on nomad-client-1
+
+### Clean Up
+```bash
+# Re-enable drained node
+nomad node drain -disable "$NODE_ID"
 ```
-The data stored in the Silo S3 bucket remained completely intact across host unmount, node drain, cross-node scheduling, and remounting.
-*(Evidence: [`docs/05-failure-and-lifecycle-tests/evidence/node-drain-migration.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/05-failure-and-lifecycle-tests/evidence/node-drain-migration.txt))*
-
----
-
-## 5. Architectural Recommendations for Production
-
-1. **Storage Substrate Isolation:** The Silo object storage cluster must **never** be placed on general worker client nodes where routine drains occur. Storage must reside on dedicated storage nodes or managed infrastructure.
-2. **Template Change Policy:** Never set `change_mode = "restart"` on daemon services like Silo unless planned, as template re-checks trigger uncoordinated restarts that sever active FUSE client mounts.
-3. **FUSE Cleanup Automation:** Node maintenance scripts must include automated lazy unmount sweeps (`grep '/tmp/nomad-lab' /proc/mounts | awk '{print $2}' | xargs -r umount -l`) to clean severed mount points after plugin daemon crashes.

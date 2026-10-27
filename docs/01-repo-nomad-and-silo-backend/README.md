@@ -35,7 +35,7 @@ Establish a reproducible, clean local Nomad environment comprising a single-serv
   ```
 * **Expected Result:** Gitleaks pre-commit hook intercepts the staged GitHub PAT token and aborts the commit with exit code 1.
 * **Actual Result:** **PASS**. Gitleaks flagged `Finding: REDACTED RuleID: github-pat leaks found: 1` and aborted the commit.
-* **Evidence:** `evidence/gitleaks-blocked.txt`
+* **Evidence:** Raw output captured in [`evidence/gitleaks-blocked.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/01-repo-nomad-and-silo-backend/evidence/gitleaks-blocked.txt); visual hook intercept verified in `screenshots/gitleaks-blocked.png`.
 
 ### Step 2: Bootstrap 2-Node Nomad Cluster
 * **Command:**
@@ -112,6 +112,12 @@ Establish a reproducible, clean local Nomad environment comprising a single-serv
 
 ---
 
+## Conclusion
+
+The local 2-node Nomad cluster and containerized Silo storage substrate were successfully bootstrapped and validated. All prerequisite security controls (Gitleaks hook, zero committed secrets), OCI container runtime adjustments (runc v1.2.5 on cgroups v2), and volume provisioning workflows passed with 100% fidelity. The foundation is robust, secure, and ready for CSI plugin integration and evaluation.
+
+---
+
 ## How to Reproduce and Clean Up
 
 ### Reproduce
@@ -121,10 +127,10 @@ sudo ./scripts/nomad-up
 
 # 2. Populate secrets into Nomad Variables
 nomad var put -force nomad/jobs/silo \
-  root_user="silo_admin" \
-  root_password="silo_password_secure" \
-  test_access_key="csi_key_test" \
-  test_secret_key="csi_sec_test_secure"
+  root_user="<SILO_ROOT_USER>" \
+  root_password="<SILO_ROOT_PASSWORD>" \
+  test_access_key="<CSI_ACCESS_KEY>" \
+  test_secret_key="<CSI_SECRET_KEY>"
 
 # 3. Deploy backend and initialize bucket
 nomad job run nomad/jobs/silo.nomad

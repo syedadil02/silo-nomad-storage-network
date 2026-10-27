@@ -1,56 +1,74 @@
 # Sub-Task 6: FIO Performance Benchmark Comparison (DEV-938)
 
-## 1. Executive Summary
+## Goal
 
-To answer whether Silo S3 can serve as an effective network storage substrate for Nomad workloads, raw functional compatibility is only half the question; performance characteristics determine what classes of workloads can realistically run.
-
-This sub-task executes identical, standardized **Flexible I/O Tester (FIO)** benchmarks across three persistent storage tiers in our Nomad cluster:
+Execute standardized Flexible I/O Tester (FIO) benchmarks across three persistent storage tiers in the Nomad cluster:
 1. **Local Host SSD Volume:** Direct ext4 host volume (`/mnt/local-ssd`).
 2. **Loopback NFS Volume:** In-kernel NFS v3/v4 network share (`/mnt/nfs`).
 3. **Silo CSI-S3 Volume:** S3-backed persistent volume managed by Nomad CSI via `s3fs` (`/mnt/silo-csi`).
 
-### Key Performance Findings
-* **Sequential Write Penalty:** Silo CSI-S3 achieved **117 MiB/s** compared to **4,571 MiB/s** on Local SSD and **5,818 MiB/s** on NFS (~39x to 50x slower). Each write incurs local FUSE buffer translation, multi-part payload assembly, and HTTP network serialization.
-* **Sequential Read Feasibility:** Silo CSI-S3 delivered **405 MiB/s** read throughput. While ~14x slower than local host caching, this bandwidth is more than adequate for media streaming, asset serving, model distribution, and bulk archive extraction.
-* **Random 4KB Latency Degradation:** Random 4KB write latency surged from **1.43 µs** (SSD) and **3.30 µs** (NFS) to **82.61 µs** (CSI-S3), while random write IOPS dropped 26x (from 141,000 IOPS to 5,389 IOPS).
+Quantify throughput, IOPS, and latency across sequential write, sequential read, and random 4KB mixed read/write workloads to establish concrete workload suitability boundaries.
 
 ---
 
-## 2. Storage Architecture Comparison
+## Environment
 
-```mermaid
-flowchart TD
-    subgraph Container Workload
-        FIO["fio Benchmark Process<br>(fio-benchmark.nomad)"]
-    end
-
-    subgraph Tier 1: Local SSD
-        FIO -->|Direct VFS Path| VFS1["Linux VFS"]
-        VFS1 -->|Direct Block I/O| NVME["Local NVMe SSD<br><b>Throughput: 4,571 MiB/s</b><br>Latency: 26 us"]
-    end
-
-    subgraph Tier 2: Loopback NFS
-        FIO -->|POSIX Syscalls| VFS2["Linux VFS"]
-        VFS2 -->|Kernel NFS Client| KNFS["nfs.ko (Kernel RPC)"]
-        KNFS -->|Loopback TCP 2049| NFSD["nfsd (Kernel Server)<br><b>Throughput: 5,818 MiB/s</b><br>Latency: 18 us"]
-    end
-
-    subgraph Tier 3: Silo CSI-S3
-        FIO -->|POSIX Syscalls| VFS3["Linux VFS"]
-        VFS3 -->|/dev/fuse Context Switch| FUSE["s3fs Userspace Daemon"]
-        FUSE -->|Local Cache Staging| CACHE["/tmp Cache Buffers"]
-        FUSE -->|HTTP REST API (Port 9000)| SILO["Silo Object Store<br><b>Throughput: 117 MiB/s</b><br>Latency: 1,059 us"]
-    end
-```
+* **Nomad Version:** `Nomad v1.7.5`
+* **Benchmark Engine:** `fio v3.36` running inside `docker.io/library/alpine:3.20@sha256:c64c687cbea9300178b30c95835354e34c4e4febc4badfe27102879de0483b5e`
+* **CSI Plugin Image:** `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4@sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`
+* **Silo Backend Image:** `docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z@sha256:003925ecebdcd659494621de84984f20aac2ca0ce88684ba23bb1e38b8e0db3c`
+* **Host Operating System:** Fedora Silverblue 44 (Linux `7.2.11-200.fc44.x86_64`)
+* **Storage Tiers Evaluated:** Local NVMe SSD (ext4), Loopback NFS (kernel RPC), Silo CSI S3 (userspace `s3fs` FUSE)
+* **Date of Evaluation:** October 28, 2026
 
 ---
 
-## 3. Comparative Benchmark Results
+## Prerequisites
 
-All tests were executed using [`nomad/jobs/fio-benchmark.nomad`](file:///var/home/syedadil/personal/silo-nomad-storage-network/nomad/jobs/fio-benchmark.nomad) with pinned `fio v3.36`.
+* Multi-node Nomad cluster active with healthy `silo-s3-csi` plugin.
+* Loopback NFS export created via [`scripts/setup-local-nfs.sh`](file:///var/home/syedadil/personal/silo-nomad-storage-network/scripts/setup-local-nfs.sh).
+* CSI volume `silo-vol-fio` registered via [`nomad/volumes/vol-fio-bench.hcl`](file:///var/home/syedadil/personal/silo-nomad-storage-network/nomad/volumes/vol-fio-bench.hcl).
+
+---
+
+## Step-by-Step Procedure & Verification
+
+### Step 1: Establish Loopback NFS Baseline Export & Mount
+* **Command:**
+  ```bash
+  sudo ./scripts/setup-local-nfs.sh
+  df -hT /tmp/nomad-lab/volumes/nfs-mount
+  ```
+* **Expected Result:** Export `/tmp/nomad-lab/nfs-export` configured in `/etc/exports.d/nomad-lab.exports`, `nfs-server` started, and mounted to `/tmp/nomad-lab/volumes/nfs-mount`.
+* **Actual Result:** **PASS**. NFS mount active and verified via `df -hT`.
+* **Evidence:** Captured in [`evidence/nfs-setup-log.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/06-fio-performance-comparison/evidence/nfs-setup-log.txt).
+
+### Step 2: Register Benchmark CSI Volume
+* **Command:**
+  ```bash
+  nomad volume create nomad/volumes/vol-fio-bench.hcl
+  nomad volume status silo-vol-fio
+  ```
+* **Expected Result:** Volume `silo-vol-fio` registered in Nomad catalog with `Schedulable = true`.
+* **Actual Result:** **PASS**. Volume registered targeting `nomad-tests/vol-fio-bench`.
+
+### Step 3: Launch FIO Benchmark Batch Job Across All Three Tiers
+* **Command:**
+  ```bash
+  nomad job run nomad/jobs/fio-benchmark.nomad
+  ALLOC_ID=$(nomad job status fio-benchmark | grep -E 'benchmarks +0 +run' | awk '{print $1}')
+  nomad alloc logs -f "$ALLOC_ID" fio
+  ```
+* **Expected Result:** Batch container executes three standardized test profiles (128KB Seq Write 64MB, 128KB Seq Read 64MB, 4KB Random 70/30 16MB) across Local SSD, NFS, and Silo CSI-S3.
+* **Actual Result:** **PASS**. Job completed with status `dead` (exit code 0), emitting full comparative metrics.
+* **Evidence:** Captured in [`evidence/fio-raw-output.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/06-fio-performance-comparison/evidence/fio-raw-output.txt) and [`evidence/fio-summary-table.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/06-fio-performance-comparison/evidence/fio-summary-table.txt).
+
+---
+
+## Results Table
 
 ### 1. Sequential Write Performance (128KB block size, 64MB file)
-Measures large sequential writes typical of backups, logging, and export pipelines:
+*Measures bulk sequential writing typical of backups, logging, and export pipelines:*
 
 | Storage Tier | Bandwidth (MiB/s) | IOPS | Avg Latency | Relative Slowdown |
 |---|:---:|:---:|:---:|:---:|
@@ -59,7 +77,7 @@ Measures large sequential writes typical of backups, logging, and export pipelin
 | **Silo CSI-S3** | **117 MiB/s** | 936 | 1,059.30 µs | **39.1x slower** |
 
 ### 2. Sequential Read Performance (128KB block size, 64MB file)
-Measures bulk sequential reading typical of dataset loading, media ingestion, and web asset streaming:
+*Measures bulk sequential reading typical of dataset loading, media ingestion, and web asset streaming:*
 
 | Storage Tier | Bandwidth (MiB/s) | IOPS | Avg Latency | Relative Slowdown |
 |---|:---:|:---:|:---:|:---:|
@@ -68,7 +86,7 @@ Measures bulk sequential reading typical of dataset loading, media ingestion, an
 | **Silo CSI-S3** | **405 MiB/s** | 3,240 | 286.19 µs | **14.4x slower** |
 
 ### 3. Random 4KB Read/Write (70% Read / 30% Write mix, 16MB file)
-Simulates transactional metadata and small-block database activity:
+*Simulates transactional metadata and small-block database activity:*
 
 | Storage Tier | Read IOPS | Read BW | Write IOPS | Write BW | Avg Write Latency |
 |---|:---:|:---:|:---:|:---:|:---:|
@@ -76,13 +94,7 @@ Simulates transactional metadata and small-block database activity:
 | **Loopback NFS** | **80,700** | 315 MiB/s | **36,300** | 142 MiB/s | 3.30 µs |
 | **Silo CSI-S3** | **12,000** | 46.7 MiB/s | **5,389** | 21.1 MiB/s | 82.61 µs |
 
-*(Raw benchmark output preserved in [`docs/06-fio-performance-comparison/evidence/fio-raw-output.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/06-fio-performance-comparison/evidence/fio-raw-output.txt) and tabulated summary in [`docs/06-fio-performance-comparison/evidence/fio-summary-table.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/06-fio-performance-comparison/evidence/fio-summary-table.txt)).*
-
----
-
-## 4. Workload Suitability Matrix
-
-Based on our empirical metrics, workloads are categorized as follows:
+### 4. Workload Suitability Matrix
 
 | Workload Profile | Typical Examples | Silo CSI-S3 Viability | Primary Bottleneck |
 |---|---|:---:|---|
@@ -94,8 +106,23 @@ Based on our empirical metrics, workloads are categorized as follows:
 
 ---
 
-## 5. Reproduction Steps
+## Findings & Problems Resolved
 
+1. **Sequential Write Overhead:** Silo CSI-S3 writes at 117 MiB/s (~39x slower than local disk) because each write operation must be translated into userspace FUSE buffers and serialized over HTTP multi-part upload streams.
+2. **Sequential Read Feasibility:** Sequential read bandwidth of 405 MiB/s is strong and fully viable for asset serving, video streaming, and machine learning model distribution.
+3. **Random Latency Surge:** Random 4KB write latency surges 50x (1.43 µs to 82.61 µs) with an IOPS drop from 141k to 5.3k, proving that S3 cannot support transactional database engines.
+
+---
+
+## Conclusion
+
+The FIO performance evaluation establishes that Silo CSI-S3 delivers viable sequential read performance (405 MiB/s) and acceptable background write throughput (117 MiB/s) for asset storage and archiving. However, its 50x latency amplification on random 4KB I/O confirms that transactional databases, WAL files, and high-concurrency caches must never be deployed on S3-backed CSI volumes.
+
+---
+
+## How to Reproduce and Clean Up
+
+### Reproduce
 ```bash
 # 1. Establish loopback NFS baseline mount
 sudo ./scripts/setup-local-nfs.sh
@@ -109,4 +136,13 @@ nomad job run nomad/jobs/fio-benchmark.nomad
 # 4. Stream and capture benchmark logs
 ALLOC_ID=$(nomad job status fio-benchmark | grep -E 'benchmarks +0 +run' | awk '{print $1}')
 nomad alloc logs -f "$ALLOC_ID" fio
+```
+
+### Clean Up
+```bash
+nomad job stop -purge fio-benchmark
+nomad volume deregister silo-vol-fio
+sudo umount -l /tmp/nomad-lab/volumes/nfs-mount 2>/dev/null || true
+sudo rm -f /etc/exports.d/nomad-lab.exports
+sudo exportfs -rav 2>/dev/null || true
 ```

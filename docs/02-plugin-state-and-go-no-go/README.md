@@ -1,77 +1,90 @@
 # Sub-Task 2: CSI Plugin State Audit & Go/No-Go Assessment (DEV-934)
 
-## 1. Executive Summary
+## Goal
 
-Nomad has no native network storage layer of its own. Stateful workloads depend on host volumes, network shares (NFS), or CSI plugins. To answer the architectural question posed in Jira **DEV-932**—*Can Silo (S3-compatible object store) serve as an external persistent volume substrate for Nomad workloads?*—this sub-task audits the only actively targeted Nomad S3 CSI plugin: [`mwantia/nomad-csi-s3-plugin`](https://github.com/mwantia/nomad-csi-s3-plugin).
-
-### Verdict: **PROCEED WITH RESERVATIONS (GO-WITH-CONDITIONS)**
-
-The plugin demonstrates correct Nomad CSI interface contracts and packages necessary FUSE utilities (`s3fs v1.89`, `bindfs`). However, due to its single-maintainer status, lack of upstream development velocity since October 2024, and fundamental limitations inherent to POSIX-over-S3 abstraction layers, it cannot be recommended unconditionally for general-purpose stateful workloads. We proceed to deploy, validate, and torture-test the plugin in Sub-Tasks 3 through 6 under strict operational guardrails.
+Perform a deep architectural and security audit of the Container Storage Interface (CSI) plugin [`mwantia/nomad-csi-s3-plugin`](https://github.com/mwantia/nomad-csi-s3-plugin) to evaluate its code maturity, upstream maintenance health, CLI flag capabilities, underlying FUSE implementation, and suitability as a persistent storage driver connecting Nomad workloads to our Silo S3 backend. Establish a formal Go/No-Go decision before deploying to cluster nodes.
 
 ---
 
-## 2. Upstream Repository Audit
+## Environment
 
-* **Repository URL:** [https://github.com/mwantia/nomad-csi-s3-plugin](https://github.com/mwantia/nomad-csi-s3-plugin)
-* **License:** MIT License (with Apache 2.0 reference in documentation)
-* **Lineage:** Forked and adapted from the unmaintained Kubernetes driver [`ctrox/csi-s3`](https://github.com/ctrox/csi-s3).
-
-### Repository Metrics (Captured Live via GitHub API)
-
-| Metric | Upstream Status | Assessment / Risk |
-|---|---|---|
-| **First Commit** | 2024-10-27T15:04:47Z | Project is very young (created late October 2024). |
-| **Last Push Date** | 2024-10-31T12:38:45Z | Repository has seen zero commits since October 31, 2024. |
-| **Total Commit Count** | 17 commits | Entire development span was 5 calendar days. |
-| **Active Maintainers** | 1 (`mwantia`) | Extreme bus factor (single author, no organization). |
-| **Stargazers / Watchers**| 0 / 0 | Minimal community visibility and adoption. |
-| **Open Issues / PRs** | 0 / 0 | No active issue tracker engagement or bug reports. |
-| **Upstream Warning** | Present in `README.md` | Author explicitly warns: *"WARNING: This plugin is experimental and should be used in production environments at your own risk."* |
-
-*(See full raw GitHub API payload in [`docs/02-plugin-state-and-go-no-go/evidence/github-repo-audit.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/github-repo-audit.txt) and commit log in [`docs/02-plugin-state-and-go-no-go/evidence/github-commits.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/github-commits.txt)).*
+* **Nomad Version:** `Nomad v1.7.5`
+* **CSI Plugin Evaluated:** `mwantia/nomad-csi-s3-plugin`
+  * Tag `v1.0.1`: `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1@sha256:b72f1a95a85859463513cd79c95c49f43740ab74ad07480653c1a75900369d06`
+  * Tag `v1.0.4` (`latest`): `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4@sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`
+* **Underlying FUSE Stack:** `/usr/bin/s3fs` V1.89 with GnuTLS(gcrypt) and `bindfs`
+* **Host Operating System:** Fedora Silverblue 44 (Linux `7.2.11-200.fc44.x86_64`)
+* **Local Machine:** Physical host running rootful Podman socket at `/run/podman/podman.sock`
+* **Date of Evaluation:** October 28, 2026
 
 ---
 
-## 3. Container Image Inspection & Version Discrepancy
+## Prerequisites
 
-We inspected the available container release tags on Docker Hub:
-
-```
-docker.io/mwantia/nomad-csi-s3-plugin:latest
-docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4
-docker.io/mwantia/nomad-csi-s3-plugin:v1.0.2
-docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1
-docker.io/mwantia/nomad-csi-s3-plugin:v1.0.0
-```
-
-### Critical Finding: The `--config` Flag Gap in `v1.0.1`
-
-A live CLI inspection of container image binaries revealed a critical discrepancy between `v1.0.1` and `v1.0.4` / `latest`:
-
-1. **Tag `v1.0.1`**:
-   * Digest: `sha256:b72f1a95a85859463513cd79c95c49f43740ab74ad07480653c1a75900369d06`
-   * Does **not** support the `--config` flag:
-     ```
-     $ sudo podman run --rm docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 --nodeid test --config=/dev/null
-     flag provided but not defined: -config
-     ```
-   * Passing `--config=/secrets/config.yml` (as shown in the upstream README and examples) causes `v1.0.1` to crash immediately on container launch. In `v1.0.1`, credentials can only be supplied directly via volume `secrets {}` blocks.
-
-2. **Tag `v1.0.4` / `latest`**:
-   * Digest: `sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`
-   * Added in commit `c55e9b25` (2024-10-31), introducing the `-config` flag and `spf13/viper` YAML alias support.
-   * Both `v1.0.4` and `latest` resolve to the exact same image configuration hash (`2bc9725d30`).
-
-### Underlying FUSE Stack
-* Inside the container, the POSIX-over-S3 mounter binary is `/usr/bin/s3fs`.
-* Version: `Amazon Simple Storage Service File System V1.89 (commit:unknown) with GnuTLS(gcrypt)`.
-* Helper utility: `bindfs` is bundled to stage allocation-specific directories.
-
-*(See raw logs in [`docs/02-plugin-state-and-go-no-go/evidence/plugin-v1.0.1-help.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/plugin-v1.0.1-help.txt), [`docs/02-plugin-state-and-go-no-go/evidence/plugin-v1.0.4-help.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/plugin-v1.0.4-help.txt), and [`docs/02-plugin-state-and-go-no-go/evidence/s3fs-version.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/s3fs-version.txt)).*
+* Active network connectivity to query GitHub API and Docker Hub registry.
+* Container runtime CLI (`podman` or `docker`) with privileges to pull and inspect container layers.
+* JSON parsing utility (`jq`) for auditing upstream repository commits and tags.
 
 ---
 
-## 4. Alternative Solutions Survey
+## Step-by-Step Procedure & Verification
+
+### Step 1: Upstream Repository Audit & Maintenance Health Check
+* **Command:**
+  ```bash
+  curl -s https://api.github.com/repos/mwantia/nomad-csi-s3-plugin | jq '{name, full_name, created_at, pushed_at, open_issues_count}'
+  curl -s https://api.github.com/repos/mwantia/nomad-csi-s3-plugin/commits | jq -r '.[] | "\(.commit.author.date) | \(.sha[:8]) | \(.commit.message | split("\n")[0])"'
+  ```
+* **Expected Result:** Discover upstream repository metrics, commit velocity, and author activity.
+* **Actual Result:** **PASS (High Risk Observed)**. Project contains only 17 total commits created over a 5-day span (Oct 27–31, 2024), authored by a single developer (`mwantia`), with zero commits or releases since October 31, 2024.
+* **Evidence:** Raw API payloads captured in [`evidence/github-repo-audit.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/github-repo-audit.txt) and [`evidence/github-commits.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/github-commits.txt).
+
+### Step 2: Container Image Tags & Digest Inspection
+* **Command:**
+  ```bash
+  sudo podman pull docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1
+  sudo podman pull docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4
+  sudo podman inspect docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 --format '{{.Digest}}'
+  sudo podman inspect docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4 --format '{{.Digest}}'
+  ```
+* **Expected Result:** Verify immutable SHA256 digests for all published release tags.
+* **Actual Result:** **PASS**. Successfully resolved immutable digests for `v1.0.1` and `v1.0.4`. `v1.0.4` matches `latest` with configuration hash `2bc9725d30`.
+* **Evidence:** Captured in [`evidence/plugin-tags-and-digests.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/plugin-tags-and-digests.txt).
+
+### Step 3: Flag Gap Verification between `v1.0.1` and `v1.0.4`
+* **Command:**
+  ```bash
+  sudo podman run --rm docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 --nodeid test --config=/dev/null || true
+  sudo podman run --rm docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4 --help
+  ```
+* **Expected Result:** Verify whether the documented `-config` flag for dynamic credential aliases is supported in both versions.
+* **Actual Result:** **PASS (Critical Discrepancy Found)**. In `v1.0.1`, running with `--config` fails immediately: `flag provided but not defined: -config`. Tag `v1.0.4` properly implements `-config` and YAML alias parsing via `spf13/viper`.
+* **Evidence:** Captured in [`evidence/plugin-v1.0.1-help.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/plugin-v1.0.1-help.txt) and [`evidence/plugin-v1.0.4-help.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/plugin-v1.0.4-help.txt).
+
+### Step 4: Underlying FUSE Stack Audit
+* **Command:**
+  ```bash
+  sudo podman run --rm --entrypoint /usr/bin/s3fs docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4 --version
+  ```
+* **Expected Result:** Identify the user-space filesystem bridge used to interface with S3.
+* **Actual Result:** **PASS**. Returns `Amazon Simple Storage Service File System V1.89 with GnuTLS(gcrypt)`. Bundled helper `bindfs` is also present for staging directory binds.
+* **Evidence:** Captured in [`evidence/s3fs-version.txt`](file:///var/home/syedadil/personal/silo-nomad-storage-network/docs/02-plugin-state-and-go-no-go/evidence/s3fs-version.txt).
+
+---
+
+## Results Table
+
+### 1. Formal Go/No-Go Decision Matrix
+
+| Dimension | Weight | Score (1-5) | Rationale |
+|---|:---:|:---:|---|
+| **Nomad CSI Spec Adherence** | High | 4/5 | Properly implements Controller and Node CSI gRPC services for Nomad v1.3+. |
+| **Operational Simplicity** | Medium | 4/5 | Deploys cleanly as standard Nomad job specifications; uses standard S3 credentials. |
+| **Community & Maintenance** | High | 1/5 | Inactive upstream since October 2024; single author; 0 stars. |
+| **POSIX Semantics & Safety** | Critical | 2/5 | Subject to `s3fs` object store emulation risks (no atomicity guarantees, eventual consistency latency). |
+| **Workload Suitability** | High | 3/5 | Suitable for read-heavy or asset storage; catastrophic for write-heavy databases (SQLite, PostgreSQL). |
+
+### 2. Alternative Solutions Survey
 
 | Solution | Mechanism | Nomad Native? | Status / Evaluation |
 |---|---|---|---|
@@ -83,56 +96,29 @@ A live CLI inspection of container image binaries revealed a critical discrepanc
 
 ---
 
-## 5. Architectural Risk Assessment
+## Findings & Problems Resolved
 
-```mermaid
-flowchart TD
-    subgraph S3 CSI Risks
-        R1["<b>Single Maintainer Risk</b><br>17 commits, abandoned Oct 2024.<br>No upstream security patches."]
-        R2["<b>POSIX Fidelity Gap</b><br>s3fs lacks distributed byte-range locks.<br>Renames simulate copy+delete."]
-        R3["<b>Privilege Escalation</b><br>Requires privileged: true and host /dev/fuse access."]
-        R4["<b>Controller Race Condition</b><br>Multi-instance controllers fight for bucket metadata."]
-    end
-
-    subgraph Mitigations
-        M1["Pin immutable image digest.<br>Fork internally if fixes needed."]
-        M2["Restrict to write-once, append-rarely, and read-heavy workloads.<br>Strictly forbid databases."]
-        M3["Audit client agent security and cgroup isolation."]
-        M4["Split topology:<br>Controller count=1 (service), Node count=all (system)."]
-    end
-
-    R1 --> M1
-    R2 --> M2
-    R3 --> M3
-    R4 --> M4
-```
+1. **Flag Gap in `v1.0.1`:** Tag `v1.0.1` crashes if passed `-config=/secrets/config.yml`. Must pin `v1.0.4` (`sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`), which implements the flag and YAML alias support.
+2. **Upstream Abandonment:** The upstream repository has been abandoned since October 31, 2024. For production use, the repository must be internally vendored and maintained.
+3. **Privilege Requirements:** The container requires `privileged = true` and host `/dev/fuse` access to mount FUSE filesystems into Nomad allocation paths.
 
 ---
 
-## 6. Formal Go/No-Go Decision Matrix
+## Conclusion
 
-| Dimension | Weight | Score (1-5) | Rationale |
-|---|:---:|:---:|---|
-| **Nomad CSI Spec Adherence** | High | 4/5 | Properly implements Controller and Node CSI gRPC services for Nomad v1.3+. |
-| **Operational Simplicity** | Medium | 4/5 | Deploys cleanly as standard Nomad job specifications; uses standard S3 credentials. |
-| **Community & Maintenance** | High | 1/5 | Inactive upstream since October 2024; single author; 0 stars. |
-| **POSIX Semantics & Safety** | Critical | 2/5 | Subject to `s3fs` object store emulation risks (no atomicity guarantees, eventual consistency latency). |
-| **Workload Suitability** | High | 3/5 | Suitable for read-heavy or asset storage; catastrophic for write-heavy databases (SQLite, PostgreSQL). |
+### Verdict: **PROCEED WITH RESERVATIONS (GO-WITH-CONDITIONS)**
 
-### Conditions of the "Go" Decision
-1. **Pinned Image Digest:** All deployments must pin the immutable digest:
-   * For configuration alias mode: `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4@sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`
-   * For direct secrets mode: `docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1@sha256:b72f1a95a85859463513cd79c95c49f43740ab74ad07480653c1a75900369d06`
-2. **Split Deployment Topology:** The controller must be deployed as a singleton (`type = "service"`, `count = 1`), while node mounters run on every host (`type = "system"`).
-3. **Strict Workload Boundary:** S3 CSI volumes must **never** be used for ACID databases, WAL files, or concurrent multi-writer shared appends.
-4. **FUSE Fallback Retained:** The static host FUSE fallback (Sub-Task 7) must be maintained as a validated disaster-recovery alternative.
+The plugin demonstrates functional Nomad CSI contracts and packages the necessary FUSE tooling (`s3fs v1.89`). However, due to its single-maintainer status and inherent POSIX-over-S3 limitations, it can only proceed under four mandatory conditions:
+1. **Pin Immutable Image Digest:** Deploy `v1.0.4` with digest `sha256:7f3981c168b3ab610a2898167bf6f73be07bc8876ec8e63182a4203a163c004c`.
+2. **Split Deployment Topology:** Run 1 Controller instance (`type = "service"`, `count = 1`) and client node daemons (`type = "system"`).
+3. **Strict Workload Boundary:** Forbid ACID databases and concurrent multi-writer appends.
+4. **FUSE Fallback Retained:** Maintain the static host FUSE fallback (Sub-Task 7) as an operational disaster-recovery alternative.
 
 ---
 
-## 7. Verification & Reproduction Steps
+## How to Reproduce and Clean Up
 
-To independently verify the upstream repository audit and inspect the image flags:
-
+### Reproduce
 ```bash
 # 1. Query upstream GitHub metadata
 curl -s https://api.github.com/repos/mwantia/nomad-csi-s3-plugin | jq '{name, full_name, created_at, pushed_at, open_issues_count}'
@@ -143,10 +129,15 @@ curl -s https://api.github.com/repos/mwantia/nomad-csi-s3-plugin/commits | jq -r
 # 3. Pull and inspect v1.0.1
 sudo podman pull docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1
 sudo podman inspect docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 --format '{{.Digest}}'
-sudo podman run --rm docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 --help
+sudo podman run --rm docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 --help || true
 
-# 4. Pull and inspect v1.0.4 (demonstrating -config support)
+# 4. Pull and inspect v1.0.4
 sudo podman pull docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4
 sudo podman inspect docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4 --format '{{.Digest}}'
 sudo podman run --rm docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4 --help
+```
+
+### Clean Up
+```bash
+sudo podman rmi docker.io/mwantia/nomad-csi-s3-plugin:v1.0.1 docker.io/mwantia/nomad-csi-s3-plugin:v1.0.4 2>/dev/null || true
 ```
