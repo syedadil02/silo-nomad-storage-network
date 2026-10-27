@@ -1,0 +1,37 @@
+ID            = consumer-multi-writer
+Name          = consumer-multi-writer
+Submit Date   = 2026-10-28T03:16:59+05:30
+Type          = service
+Priority      = 50
+Datacenters   = dc1
+Namespace     = default
+Node Pool     = default
+Status        = running
+Periodic      = false
+Parameterized = false
+
+Summary
+Task Group  Queued  Starting  Running  Failed  Complete  Lost  Unknown
+workers     0       0         2        8       0         0     0
+
+Latest Deployment
+ID          = 853ae70d
+Status      = successful
+Description = Deployment completed successfully
+
+Deployed
+Task Group  Desired  Placed  Healthy  Unhealthy  Progress Deadline
+workers     2        2       2        0          2026-10-28T03:27:09+05:30
+
+Allocations
+ID        Node ID   Task Group  Version  Desired  Status   Created     Modified
+82b850bd  0055d3d0  workers     0        run      running  15s ago     4s ago
+66a77a64  248e62bb  workers     0        run      running  26s ago     16s ago
+d6fd5ab8  248e62bb  workers     0        stop     failed   4m15s ago   15s ago
+eec88b3c  248e62bb  workers     0        stop     failed   4m26s ago   26s ago
+c58cd697  248e62bb  workers     0        stop     failed   6m15s ago   4m15s ago
+79f9d4c0  248e62bb  workers     0        stop     failed   6m26s ago   4m26s ago
+aef6e74f  0055d3d0  workers     0        stop     failed   7m15s ago   6m15s ago
+402ecab9  248e62bb  workers     0        stop     failed   7m26s ago   6m26s ago
+432b3e46  248e62bb  workers     0        stop     failed   14m54s ago  7m15s ago
+adf6f0bf  0055d3d0  workers     0        stop     failed   14m54s ago  7m26s ago

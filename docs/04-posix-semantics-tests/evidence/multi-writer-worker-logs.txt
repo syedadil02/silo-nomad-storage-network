@@ -1,0 +1,8 @@
+=== Allocation 1 Logs (82b850bd) ===
+[Worker nomad-client-2] Initialized on nomad-client-2
+[Worker nomad-client-2] Starting 50 concurrent appends to /data/concurrent-append.log...
+[Worker nomad-client-2] Completed 50 appends.
+=== Allocation 2 Logs (66a77a64) ===
+[Worker nomad-client-1] Initialized on nomad-client-1
+[Worker nomad-client-1] Starting 50 concurrent appends to /data/concurrent-append.log...
+[Worker nomad-client-1] Completed 50 appends.

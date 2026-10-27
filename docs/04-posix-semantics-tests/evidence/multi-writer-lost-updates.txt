@@ -1,0 +1,68 @@
+=== Concurrent Multi-Node Append Analysis ===
+Worker 1 (nomad-client-1): 50 sequential appends
+Worker 2 (nomad-client-2): 50 sequential appends
+Expected Result: 100 atomic interleaved text lines without corruption
+
+Actual Result:
+- S3 Object corrupted with null bytes (^@) due to missing distributed byte-range locking.
+- File offsets clashed between independent s3fs client caches.
+
+Raw File Inspection (with non-printable characters escaped via cat -v):
+----------------------------------------------------------------------
+Node: nomad-client-1 | Write: 1 | Time: 21:47:01
+^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@Node: nomad-client-2 | Write: 5 | Time: 21:47:01
+Node: nomad-client-1 | Write: 6 | Time: 21:47:01
+Node: nomad-client-1 | Write: 7 | Time: 21:47:01
+Node: nomad-client-1 | Write: 8 | Time: 21:47:01
+Node: nomad-client-1 | Write: 9 | Time: 21:47:01
+Node: nomad-client-1 | Write: 10 | Time: 21:47:01
+Node: nomad-client-1 | Write: 11 | Time: 21:47:01
+Node: nomad-client-1 | Write: 12 | Time: 21:47:01
+Node: nomad-client-1 | Write: 13 | Time: 21:47:01
+Node: nomad-client-1 | Write: 14 | Time: 21:47:01
+Node: nomad-client-1 | Write: 15 | Time: 21:47:01
+Node: nomad-client-1 | Write: 16 | Time: 21:47:01
+Node: nomad-client-1 | Write: 17 | Time: 21:47:01
+Node: nomad-client-1 | Write: 18 | Time: 21:47:01
+Node: nomad-client-1 | Write: 19 | Time: 21:47:01
+Node: nomad-client-1 | Write: 20 | Time: 21:47:01
+Node: nomad-client-1 | Write: 21 | Time: 21:47:01
+Node: nomad-client-1 | Write: 22 | Time: 21:47:01
+Node: nomad-client-1 | Write: 23 | Time: 21:47:01
+Node: nomad-client-1 | Write: 24 | Time: 21:47:01
+Node: nomad-client-1 | Write: 25 | Time: 21:47:01
+Node: nomad-client-1 | Write: 26 | Time: 21:47:01
+Node: nomad-client-1 | Write: 27 | Time: 21:47:01
+Node: nomad-client-1 | Write: 28 | Time: 21:47:01
+Node: nomad-client-1 | Write: 29 | Time: 21:47:01
+Node: nomad-client-1 | Write: 30 | Time: 21:47:01
+Node: nomad-client-1 | Write: 31 | Time: 21:47:01
+Node: nomad-client-1 | Write: 32 | Time: 21:47:01
+Node: nomad-client-1 | Write: 33 | Time: 21:47:01
+Node: nomad-client-1 | Write: 34 | Time: 21:47:01
+Node: nomad-client-1 | Write: 35 | Time: 21:47:01
+Node: nomad-client-1 | Write: 36 | Time: 21:47:01
+Node: nomad-client-1 | Write: 37 | Time: 21:47:01
+Node: nomad-client-1 | Write: 38 | Time: 21:47:01
+...
+Node: nomad-client-2 | Write: 31 | Time: 22:01:40
+Node: nomad-client-2 | Write: 32 | Time: 22:01:40
+Node: nomad-client-2 | Write: 33 | Time: 22:01:40
+Node: nomad-client-2 | Write: 34 | Time: 22:01:40
+Node: nomad-client-2 | Write: 35 | Time: 22:01:40
+Node: nomad-client-2 | Write: 36 | Time: 22:01:40
+Node: nomad-client-2 | Write: 37 | Time: 22:01:40
+Node: nomad-client-2 | Write: 38 | Time: 22:01:40
+Node: nomad-client-2 | Write: 39 | Time: 22:01:40
+Node: nomad-client-2 | Write: 40 | Time: 22:01:40
+Node: nomad-client-2 | Write: 41 | Time: 22:01:40
+Node: nomad-client-2 | Write: 42 | Time: 22:01:40
+Node: nomad-client-2 | Write: 43 | Time: 22:01:40
+Node: nomad-client-2 | Write: 44 | Time: 22:01:40
+Node: nomad-client-2 | Write: 45 | Time: 22:01:40
+Node: nomad-client-2 | Write: 46 | Time: 22:01:40
+Node: nomad-client-2 | Write: 47 | Time: 22:01:40
+Node: nomad-client-2 | Write: 48 | Time: 22:01:40
+Node: nomad-client-2 | Write: 49 | Time: 22:01:40
+Node: nomad-client-2 | Write: 50 | Time: 22:01:40
+----------------------------------------------------------------------

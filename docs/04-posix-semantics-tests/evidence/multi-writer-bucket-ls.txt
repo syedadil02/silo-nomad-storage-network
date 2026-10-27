@@ -1,0 +1,5 @@
+[2026-10-28 03:16:39 IST]     0B STANDARD /
+[2026-10-28 03:16:39 IST]   124B STANDARD .metadata.json
+[2026-10-28 03:31:40 IST] 7.3KiB STANDARD concurrent-append.log
+[2026-10-28 03:31:26 IST]    69B STANDARD worker-nomad-client-1.txt
+[2026-10-28 03:31:38 IST]    69B STANDARD worker-nomad-client-2.txt

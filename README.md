@@ -22,7 +22,8 @@ Nomad workloads requiring persistent storage traditionally rely on host volumes,
 | **ST01** | DEV-933 | Repo setup, 2-client Nomad cluster, and pinned Silo backend | **Done** | [docs/01-repo-nomad-and-silo-backend](docs/01-repo-nomad-and-silo-backend/README.md) |
 | **ST02** | DEV-934 | Re-verify CSI plugin state, commits, issues, and Go/No-Go | **Done** | [docs/02-plugin-state-and-go-no-go](docs/02-plugin-state-and-go-no-go/README.md) |
 | **ST03** | DEV-935 | Deploy CSI plugin (Controller + Node) and mount S3 volumes | **Done** | [docs/03-csi-plugin-deployment](docs/03-csi-plugin-deployment/README.md) |
-| **ST04** | DEV-936 | POSIX semantics torture tests & multi-writer concurrency | **Ready** | [docs/04-posix-semantics-tests](docs/04-posix-semantics-tests/README.md) |
+| **ST04** | DEV-936 | POSIX semantics torture tests & multi-writer concurrency | **Done** | [docs/04-posix-semantics-tests](docs/04-posix-semantics-tests/README.md) |
+| **ST05** | DEV-937 | Chaos, failure modes, and client node drain rescheduling | **Ready** | [docs/05-failure-and-lifecycle-tests](docs/05-failure-and-lifecycle-tests/README.md) |
 | **ST05** | DEV-937 | Chaos, failure modes, and client node drain rescheduling | **Backlog** | [docs/05-failure-and-lifecycle-tests](docs/05-failure-and-lifecycle-tests/README.md) |
 | **ST06** | DEV-938 | FIO performance benchmarks (CSI-S3 vs Local SSD vs NFS) | **Backlog** | [docs/06-fio-performance-comparison](docs/06-fio-performance-comparison/README.md) |
 | **ST07** | DEV-939 | Static Host-Managed FUSE volume fallback (no CSI) | **Backlog** | [docs/07-fuse-host-volume-fallback](docs/07-fuse-host-volume-fallback/README.md) |

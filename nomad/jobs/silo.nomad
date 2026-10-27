@@ -55,6 +55,7 @@ MINIO_ROOT_PASSWORD="{{ with nomadVar "nomad/jobs/silo" }}{{ .root_password }}{{
 EOF
         destination = "secrets/silo.env"
         env         = true
+        change_mode = "noop"
       }
 
       service {

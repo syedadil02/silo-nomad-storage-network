@@ -37,7 +37,7 @@ job "csi-s3-node" {
         {{ end }}
         EOH
         destination = "secrets/config.yml"
-        change_mode = "restart"
+        change_mode = "noop"
       }
 
       resources {
