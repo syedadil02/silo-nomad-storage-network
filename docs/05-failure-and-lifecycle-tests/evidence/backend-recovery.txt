@@ -1,0 +1,11 @@
+=== Chaos Test Scenario A: Silo Backend Recovery ===
+1. Action: nomad job run nomad/jobs/silo.nomad
+2. Observed behavior once Silo resumed listening on port 9000:
+   $ nomad alloc exec 939af0db sh -c 'cat /data/csi-message.txt'
+   Nomad CSI Silo persistent payload verified at Tue Oct 27 22:01:21 UTC 2026
+3. Write recovery:
+   $ nomad alloc exec 939af0db sh -c 'echo "written after backend recovery" > /data/recovery-test.txt'
+   $ mc ls local/nomad-tests/vol-single-alias/recovery-test.txt
+   [2026-10-28 03:35:54 IST] 31B STANDARD recovery-test.txt
+4. Conclusion:
+   s3fs automatically reconnects to S3 endpoint on subsequent requests without requiring consumer task restart.

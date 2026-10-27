@@ -1,0 +1,9 @@
+=== Chaos Test Scenario A: Silo Backend Stoppage ===
+1. Workload running: consumer-single-writer
+2. Action: nomad job stop silo
+3. Observed behavior on active mount /data:
+   $ nomad alloc exec 939af0db sh -c 'cat /data/csi-message.txt'
+   cat: can't open '/data/csi-message.txt': I/O error
+4. Root Cause:
+   Underlying s3fs FUSE daemon encountered broken HTTP connection to http://127.0.0.1:9000.
+   POSIX read returns EIO (Input/output error).

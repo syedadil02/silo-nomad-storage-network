@@ -1,0 +1,15 @@
+=== Chaos Test Scenario C: Node Drain and Failover Rescheduling ===
+1. Pre-drain write on nomad-client-1:
+   $ nomad alloc exec 29f1d7d0 sh -c 'echo "Pre-drain state recorded at $(date -u) on nomad-client-1" > /data/failover-evidence.txt'
+   Pre-drain state recorded at Tue Oct 27 22:09:54 UTC 2026 on nomad-client-1
+2. Node drain command:
+   $ nomad node drain -enable -deadline 1m 248e62bb
+   Node 248e62bb marked for drain; allocation 29f1d7d0 draining -> complete.
+3. Node dependency catch:
+   Silo was co-located on nomad-client-1. Draining nomad-client-1 took down the backend, causing client-2 mount to fail with dial tcp connection refused.
+4. Failover & persistence verification:
+   Upon undraining and restoring allocation to 1dd4d97c:
+   $ nomad alloc exec 1dd4d97c cat /data/failover-evidence.txt
+   Pre-drain state recorded at Tue Oct 27 22:09:54 UTC 2026 on nomad-client-1
+5. Conclusion:
+   Data persisted in Silo S3 bucket survived full node eviction, allocation rescheduling, and cross-node volume remount.

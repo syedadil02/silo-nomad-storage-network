@@ -1,0 +1,12 @@
+=== Chaos Test Scenario B: CSI Plugin Daemon Restart / Failure ===
+1. Action: nomad alloc restart 5e380334 plugin (restarting csi-s3-node daemon)
+2. Observed behavior in running consumer allocation:
+   $ nomad alloc exec 939af0db sh -c 'ls -la /data'
+   ls: /data: Socket not connected
+3. Task restart behavior within same allocation:
+   API error (500): container create: statfs /tmp/nomad-lab/client1/client/csi/node/silo-s3-csi/per-alloc/939af0db.../rw-file-system-single-node-writer: transport endpoint is not connected
+   Exit Code: 137, Client Status: failed (Error was unrecoverable)
+4. Root Cause:
+   Killing the CSI node daemon process severs the userspace FUSE socket.
+   Linux kernel FUSE mounts cannot re-bind to a newly spawned daemon process.
+   Mount points must be unmounted via 'umount -l' and re-staged in a new allocation.
