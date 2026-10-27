@@ -1,0 +1,17 @@
+2024-10-31T12:38:44Z | 298fb536 | Updated README.md
+2024-10-31T12:20:36Z | 6d5dd07d | Updated README.md
+2024-10-31T12:12:13Z | 78912813 | Added README.md and updated Nomad job examples
+2024-10-31T03:52:19Z | 8465666f | Changed config to "github.com/spf13/viper" with the addition to support string interpolation for env variables.
+2024-10-31T03:18:27Z | c55e9b25 | Added support for a new config file "--config", used to define aliases (similar to mc).
+2024-10-30T17:03:07Z | e014c523 | Further improvements in the "bindfs" implementation
+2024-10-30T16:44:15Z | 2de20e55 | Added new verifier to hopefully make fuse mounts more robust and reliable
+2024-10-30T12:18:25Z | 32f1f0ca | Removed otel, since it served its purpose
+2024-10-30T12:00:49Z | 8a1cfbfc | Adjusted version and fixed an error with the "s3fs" fuse-mount
+2024-10-30T11:40:40Z | 056a6ef3 | - Fixed some remaining issues
+2024-10-30T01:30:03Z | be83cfb1 | Fixed using the wrong package for 'bindfs'
+2024-10-30T01:15:05Z | dc992a78 | Added bindfs package to Dockerfile
+2024-10-30T00:53:06Z | 71285cdd | Further updates and error handling
+2024-10-29T23:49:32Z | e3b12455 | Updated repository to "ctrox/csi-s3"
+2024-10-27T18:17:43Z | 6951f772 | Bump work
+2024-10-27T15:18:50Z | b896b303 | Fixed missing go.mod
+2024-10-27T15:04:47Z | 20fac879 | first commit

@@ -1,0 +1,6 @@
+/usr/bin/s3fs
+Amazon Simple Storage Service File System V1.89 (commit:unknown) with GnuTLS(gcrypt)
+Copyright (C) 2010 Randy Rizun <rrizun@gmail.com>
+License GPL2: GNU GPL version 2 <https://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
