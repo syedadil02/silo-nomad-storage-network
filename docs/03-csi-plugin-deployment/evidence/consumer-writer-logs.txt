@@ -1,0 +1,3 @@
+Writing test payload to Silo volume...
+Persisted content successfully:
+Nomad CSI Silo persistent payload verified at Tue Oct 27 21:42:41 UTC 2026

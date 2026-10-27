@@ -1,0 +1,20 @@
+ID                   = silo-vol-direct
+Name                 = silo-vol-direct
+Namespace            = default
+External ID          = nomad-tests/vol-single-direct
+Plugin ID            = silo-s3-csi
+Provider             = github.com.mwantia.nomad-csi-s3-plugin
+Version              = v1.0.4
+Capacity             = 1.0 GiB
+Schedulable          = true
+Controllers Healthy  = 1
+Controllers Expected = 1
+Nodes Healthy        = 2
+Nodes Expected       = 2
+Access Mode          = <none>
+Attachment Mode      = <none>
+Mount Options        = <none>
+Namespace            = default
+
+Allocations
+No allocations placed

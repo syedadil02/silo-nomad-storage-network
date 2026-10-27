@@ -1,0 +1,28 @@
+ID            = consumer-single-writer
+Name          = consumer-single-writer
+Submit Date   = 2026-10-28T03:12:41+05:30
+Type          = service
+Priority      = 50
+Datacenters   = dc1
+Namespace     = default
+Node Pool     = default
+Status        = running
+Periodic      = false
+Parameterized = false
+
+Summary
+Task Group  Queued  Starting  Running  Failed  Complete  Lost  Unknown
+writer      0       0         1        0       0         0     0
+
+Latest Deployment
+ID          = e4c0d707
+Status      = successful
+Description = Deployment completed successfully
+
+Deployed
+Task Group  Desired  Placed  Healthy  Unhealthy  Progress Deadline
+writer      1        1       1        0          2026-10-28T03:22:51+05:30
+
+Allocations
+ID        Node ID   Task Group  Version  Desired  Status   Created  Modified
+b3b65262  248e62bb  writer      0        run      running  1m ago   49s ago

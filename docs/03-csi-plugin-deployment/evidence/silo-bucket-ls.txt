@@ -1,0 +1,7 @@
+[2026-10-28 03:01:47 IST]    21B STANDARD csi-test.txt
+[2026-10-28 03:01:00 IST]    20B STANDARD test.txt
+[2026-10-28 03:12:02 IST]     0B STANDARD vol-single-alias/
+[2026-10-28 03:12:02 IST]   124B STANDARD vol-single-alias/.metadata.json
+[2026-10-28 03:12:41 IST]    75B STANDARD vol-single-alias/csi-message.txt
+[2026-10-28 03:13:27 IST]     0B STANDARD vol-single-direct/
+[2026-10-28 03:13:27 IST]   125B STANDARD vol-single-direct/.metadata.json

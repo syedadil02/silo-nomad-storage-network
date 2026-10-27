@@ -1,0 +1,13 @@
+ID                   = silo-s3-csi
+Provider             = github.com.mwantia.nomad-csi-s3-plugin
+Version              = v1.0.4
+Controllers Healthy  = 1
+Controllers Expected = 1
+Nodes Healthy        = 2
+Nodes Expected       = 2
+
+Allocations
+ID        Node ID   Task Group  Version  Desired  Status   Created    Modified
+9bc044f9  0055d3d0  node        0        run      running  2m17s ago  2m16s ago
+2c6f311d  248e62bb  node        0        run      running  2m17s ago  2m16s ago
+326a5043  248e62bb  controller  0        run      running  2m28s ago  2m18s ago

@@ -1,0 +1,21 @@
+ID                   = silo-vol-alias
+Name                 = silo-vol-alias
+Namespace            = default
+External ID          = nomad-tests/vol-single-alias
+Plugin ID            = silo-s3-csi
+Provider             = github.com.mwantia.nomad-csi-s3-plugin
+Version              = v1.0.4
+Capacity             = 1.0 GiB
+Schedulable          = true
+Controllers Healthy  = 1
+Controllers Expected = 1
+Nodes Healthy        = 2
+Nodes Expected       = 2
+Access Mode          = single-node-writer
+Attachment Mode      = file-system
+Mount Options        = <none>
+Namespace            = default
+
+Allocations
+ID        Node ID   Task Group  Version  Desired  Status   Created  Modified
+b3b65262  248e62bb  writer      0        run      running  1m ago   49s ago
