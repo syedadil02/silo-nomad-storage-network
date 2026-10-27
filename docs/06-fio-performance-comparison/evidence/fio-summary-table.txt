@@ -1,0 +1,31 @@
+========================================================================================
+           NOMAD STORAGE PERFORMANCE COMPARISON: LOCAL SSD vs NFS vs SILO CSI-S3
+========================================================================================
+
+1. SEQUENTIAL WRITE (128KB block size, 64MB file):
+----------------------------------------------------------------------------------------
+Storage Substrate     Throughput (MiB/s)    IOPS           Avg Latency (usec)   Runtime
+Local Host SSD        4,571 MiB/s          36,600 IOPS    26.35 us             14 ms
+Loopback NFS          5,818 MiB/s          46,500 IOPS    18.84 us             11 ms
+Silo CSI-S3 (s3fs)      117 MiB/s             936 IOPS  1,059.30 us            547 ms
+----------------------------------------------------------------------------------------
+Delta: Silo CSI-S3 is ~39x to 50x slower in sequential write throughput.
+
+2. SEQUENTIAL READ (128KB block size, 64MB file):
+----------------------------------------------------------------------------------------
+Storage Substrate     Throughput (MiB/s)    IOPS           Avg Latency (usec)   Runtime
+Local Host SSD        5,818 MiB/s          46,500 IOPS    19.30 us             11 ms
+Loopback NFS          4,571 MiB/s          36,600 IOPS    25.20 us             14 ms
+Silo CSI-S3 (s3fs)      405 MiB/s           3,240 IOPS   286.19 us             158 ms
+----------------------------------------------------------------------------------------
+Delta: Silo CSI-S3 achieves viable read throughput (405 MiB/s), but is ~14x slower.
+
+3. RANDOM 4KB READ / WRITE (70% Read / 30% Write, 16MB file):
+----------------------------------------------------------------------------------------
+Storage Substrate     Read BW / IOPS               Write BW / IOPS             Write Latency
+Local Host SSD        1,226 MiB/s (314,000 IOPS)    552 MiB/s (141,000 IOPS)     1.43 us
+Loopback NFS            315 MiB/s ( 80,700 IOPS)    142 MiB/s ( 36,300 IOPS)     3.30 us
+Silo CSI-S3 (s3fs)     46.7 MiB/s ( 12,000 IOPS)   21.1 MiB/s (  5,389 IOPS)    82.61 us
+----------------------------------------------------------------------------------------
+Delta: Random 4KB Write IOPS drops 26x from 141,000 IOPS (SSD) to 5,389 IOPS (CSI-S3).
+========================================================================================

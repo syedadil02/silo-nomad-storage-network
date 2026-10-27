@@ -1,0 +1,296 @@
+======================================================================
+          NOMAD STORAGE NETWORK PERFORMANCE BENCHMARK (FIO)           
+======================================================================
+Targets under evaluation:
+  1. Local Host SSD Volume (/mnt/local-ssd)
+  2. Loopback NFS Volume (/mnt/nfs)
+  3. Silo S3-CSI Volume (/mnt/silo-csi)
+
+----------------------------------------------------------------------
+>>> BENCHMARKING TARGET: Local-SSD (/mnt/local-ssd) <<<
+----------------------------------------------------------------------
+>> 1. Sequential Write (128KB, 64MB):
+Local-SSD-seq-write: (g=0): rw=write, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Local-SSD-seq-write: Laying out IO file (1 file / 64MiB)
+
+Local-SSD-seq-write: (groupid=0, jobs=1): err= 0: pid=27: Tue Oct 27 22:16:07 2026
+  write: IOPS=36.6k, BW=4571MiB/s (4793MB/s)(64.0MiB/14msec); 0 zone resets
+    clat (usec): min=20, max=134, avg=26.35, stdev= 9.40
+     lat (usec): min=21, max=142, avg=26.83, stdev= 9.79
+    clat percentiles (usec):
+     |  1.00th=[   22],  5.00th=[   22], 10.00th=[   23], 20.00th=[   23],
+     | 30.00th=[   23], 40.00th=[   24], 50.00th=[   25], 60.00th=[   26],
+     | 70.00th=[   26], 80.00th=[   28], 90.00th=[   32], 95.00th=[   36],
+     | 99.00th=[   50], 99.50th=[  118], 99.90th=[  135], 99.95th=[  135],
+     | 99.99th=[  135]
+  lat (usec)   : 50=99.02%, 100=0.39%, 250=0.59%
+  cpu          : usr=0.00%, sys=92.31%, ctx=1, majf=0, minf=7
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,512,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=4571MiB/s (4793MB/s), 4571MiB/s-4571MiB/s (4793MB/s-4793MB/s), io=64.0MiB (67.1MB), run=14-14msec
+>> 2. Sequential Read (128KB, 64MB):
+Local-SSD-seq-read: (g=0): rw=read, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Local-SSD-seq-read: Laying out IO file (1 file / 64MiB)
+
+Local-SSD-seq-read: (groupid=0, jobs=1): err= 0: pid=42: Tue Oct 27 22:16:07 2026
+  read: IOPS=46.5k, BW=5818MiB/s (6101MB/s)(64.0MiB/11msec)
+    clat (usec): min=15, max=239, avg=19.30, stdev=14.21
+     lat (usec): min=15, max=243, avg=19.36, stdev=14.36
+    clat percentiles (usec):
+     |  1.00th=[   16],  5.00th=[   17], 10.00th=[   18], 20.00th=[   18],
+     | 30.00th=[   18], 40.00th=[   18], 50.00th=[   18], 60.00th=[   19],
+     | 70.00th=[   19], 80.00th=[   20], 90.00th=[   21], 95.00th=[   22],
+     | 99.00th=[   29], 99.50th=[   86], 99.90th=[  239], 99.95th=[  239],
+     | 99.99th=[  239]
+  lat (usec)   : 20=87.89%, 50=11.52%, 100=0.20%, 250=0.39%
+  cpu          : usr=0.00%, sys=100.00%, ctx=0, majf=0, minf=40
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=512,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=5818MiB/s (6101MB/s), 5818MiB/s-5818MiB/s (6101MB/s-6101MB/s), io=64.0MiB (67.1MB), run=11-11msec
+>> 3. Random 4KB Read/Write (4KB, 16MB, 70/30 read/write):
+Local-SSD-rand-rw: (g=0): rw=randrw, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Local-SSD-rand-rw: Laying out IO file (1 file / 16MiB)
+
+Local-SSD-rand-rw: (groupid=0, jobs=1): err= 0: pid=57: Tue Oct 27 22:16:08 2026
+  read: IOPS=314k, BW=1226MiB/s (1285MB/s)(11.0MiB/9msec)
+    clat (nsec): min=902, max=57459, avg=1260.87, stdev=1280.19
+     lat (nsec): min=942, max=57509, avg=1307.65, stdev=1296.46
+    clat percentiles (nsec):
+     |  1.00th=[  996],  5.00th=[ 1020], 10.00th=[ 1048], 20.00th=[ 1064],
+     | 30.00th=[ 1080], 40.00th=[ 1112], 50.00th=[ 1144], 60.00th=[ 1160],
+     | 70.00th=[ 1208], 80.00th=[ 1288], 90.00th=[ 1432], 95.00th=[ 1528],
+     | 99.00th=[ 1960], 99.50th=[ 7904], 99.90th=[12864], 99.95th=[15552],
+     | 99.99th=[57600]
+  write: IOPS=141k, BW=552MiB/s (579MB/s)(5088KiB/9msec); 0 zone resets
+    clat (nsec): min=1052, max=13336, avg=1431.55, stdev=833.94
+     lat (nsec): min=1132, max=64252, avg=1565.26, stdev=1962.07
+    clat percentiles (nsec):
+     |  1.00th=[ 1144],  5.00th=[ 1176], 10.00th=[ 1208], 20.00th=[ 1240],
+     | 30.00th=[ 1256], 40.00th=[ 1272], 50.00th=[ 1304], 60.00th=[ 1336],
+     | 70.00th=[ 1368], 80.00th=[ 1448], 90.00th=[ 1608], 95.00th=[ 1736],
+     | 99.00th=[ 5728], 99.50th=[ 8768], 99.90th=[12352], 99.95th=[13376],
+     | 99.99th=[13376]
+  lat (nsec)   : 1000=0.81%
+  lat (usec)   : 2=98.10%, 4=0.22%, 10=0.61%, 20=0.24%, 100=0.02%
+  cpu          : usr=50.00%, sys=25.00%, ctx=1, majf=0, minf=8
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=2824,1272,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=1226MiB/s (1285MB/s), 1226MiB/s-1226MiB/s (1285MB/s-1285MB/s), io=11.0MiB (11.6MB), run=9-9msec
+  WRITE: bw=552MiB/s (579MB/s), 552MiB/s-552MiB/s (579MB/s-579MB/s), io=5088KiB (5210kB), run=9-9msec
+
+----------------------------------------------------------------------
+>>> BENCHMARKING TARGET: Loopback-NFS (/mnt/nfs) <<<
+----------------------------------------------------------------------
+>> 1. Sequential Write (128KB, 64MB):
+Loopback-NFS-seq-write: (g=0): rw=write, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Loopback-NFS-seq-write: Laying out IO file (1 file / 64MiB)
+
+Loopback-NFS-seq-write: (groupid=0, jobs=1): err= 0: pid=74: Tue Oct 27 22:16:08 2026
+  write: IOPS=46.5k, BW=5818MiB/s (6101MB/s)(64.0MiB/11msec); 0 zone resets
+    clat (usec): min=14, max=165, avg=18.84, stdev= 9.99
+     lat (usec): min=14, max=167, avg=19.51, stdev=10.40
+    clat percentiles (usec):
+     |  1.00th=[   15],  5.00th=[   16], 10.00th=[   16], 20.00th=[   16],
+     | 30.00th=[   17], 40.00th=[   17], 50.00th=[   18], 60.00th=[   18],
+     | 70.00th=[   19], 80.00th=[   20], 90.00th=[   22], 95.00th=[   25],
+     | 99.00th=[   41], 99.50th=[   91], 99.90th=[  165], 99.95th=[  165],
+     | 99.99th=[  165]
+  lat (usec)   : 20=84.18%, 50=15.04%, 100=0.39%, 250=0.39%
+  cpu          : usr=0.00%, sys=90.00%, ctx=2, majf=0, minf=9
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,512,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=5818MiB/s (6101MB/s), 5818MiB/s-5818MiB/s (6101MB/s-6101MB/s), io=64.0MiB (67.1MB), run=11-11msec
+>> 2. Sequential Read (128KB, 64MB):
+Loopback-NFS-seq-read: (g=0): rw=read, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Loopback-NFS-seq-read: Laying out IO file (1 file / 64MiB)
+
+Loopback-NFS-seq-read: (groupid=0, jobs=1): err= 0: pid=89: Tue Oct 27 22:16:08 2026
+  read: IOPS=36.6k, BW=4571MiB/s (4793MB/s)(64.0MiB/14msec)
+    clat (usec): min=4, max=270, avg=25.20, stdev=24.09
+     lat (usec): min=4, max=271, avg=25.25, stdev=24.09
+    clat percentiles (usec):
+     |  1.00th=[    5],  5.00th=[    5], 10.00th=[    5], 20.00th=[    5],
+     | 30.00th=[    5], 40.00th=[    6], 50.00th=[   20], 60.00th=[   35],
+     | 70.00th=[   42], 80.00th=[   46], 90.00th=[   53], 95.00th=[   61],
+     | 99.00th=[   73], 99.50th=[   84], 99.90th=[  273], 99.95th=[  273],
+     | 99.99th=[  273]
+  lat (usec)   : 10=49.61%, 20=0.39%, 50=34.57%, 100=15.23%, 500=0.20%
+  cpu          : usr=7.69%, sys=61.54%, ctx=198, majf=0, minf=38
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=512,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=4571MiB/s (4793MB/s), 4571MiB/s-4571MiB/s (4793MB/s-4793MB/s), io=64.0MiB (67.1MB), run=14-14msec
+>> 3. Random 4KB Read/Write (4KB, 16MB, 70/30 read/write):
+Loopback-NFS-rand-rw: (g=0): rw=randrw, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Loopback-NFS-rand-rw: Laying out IO file (1 file / 16MiB)
+
+Loopback-NFS-rand-rw: (groupid=0, jobs=1): err= 0: pid=104: Tue Oct 27 22:16:09 2026
+  read: IOPS=80.7k, BW=315MiB/s (330MB/s)(11.0MiB/35msec)
+    clat (usec): min=8, max=101, avg= 9.60, stdev= 3.27
+     lat (usec): min=8, max=102, avg= 9.65, stdev= 3.27
+    clat percentiles (usec):
+     |  1.00th=[    9],  5.00th=[    9], 10.00th=[    9], 20.00th=[    9],
+     | 30.00th=[    9], 40.00th=[    9], 50.00th=[    9], 60.00th=[   10],
+     | 70.00th=[   10], 80.00th=[   10], 90.00th=[   12], 95.00th=[   13],
+     | 99.00th=[   19], 99.50th=[   23], 99.90th=[   65], 99.95th=[   66],
+     | 99.99th=[  102]
+  write: IOPS=36.3k, BW=142MiB/s (149MB/s)(5088KiB/35msec); 0 zone resets
+    clat (usec): min=2, max=172, avg= 3.30, stdev= 5.04
+     lat (usec): min=2, max=172, avg= 3.39, stdev= 5.04
+    clat percentiles (usec):
+     |  1.00th=[    3],  5.00th=[    3], 10.00th=[    3], 20.00th=[    3],
+     | 30.00th=[    3], 40.00th=[    3], 50.00th=[    3], 60.00th=[    3],
+     | 70.00th=[    3], 80.00th=[    4], 90.00th=[    4], 95.00th=[    6],
+     | 99.00th=[    7], 99.50th=[   10], 99.90th=[   53], 99.95th=[  174],
+     | 99.99th=[  174]
+  lat (usec)   : 4=28.49%, 10=58.91%, 20=12.08%, 50=0.34%, 100=0.12%
+  lat (usec)   : 250=0.05%
+  cpu          : usr=2.94%, sys=67.65%, ctx=2826, majf=0, minf=8
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=2824,1272,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=315MiB/s (330MB/s), 315MiB/s-315MiB/s (330MB/s-330MB/s), io=11.0MiB (11.6MB), run=35-35msec
+  WRITE: bw=142MiB/s (149MB/s), 142MiB/s-142MiB/s (149MB/s-149MB/s), io=5088KiB (5210kB), run=35-35msec
+
+----------------------------------------------------------------------
+>>> BENCHMARKING TARGET: Silo-CSI-S3 (/mnt/silo-csi) <<<
+----------------------------------------------------------------------
+>> 1. Sequential Write (128KB, 64MB):
+Silo-CSI-S3-seq-write: (g=0): rw=write, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Silo-CSI-S3-seq-write: Laying out IO file (1 file / 64MiB)
+
+Silo-CSI-S3-seq-write: (groupid=0, jobs=1): err= 0: pid=121: Tue Oct 27 22:16:10 2026
+  write: IOPS=936, BW=117MiB/s (123MB/s)(64.0MiB/547msec); 0 zone resets
+    clat (usec): min=861, max=4063, avg=1059.30, stdev=271.51
+     lat (usec): min=861, max=4064, avg=1060.79, stdev=271.63
+    clat percentiles (usec):
+     |  1.00th=[  873],  5.00th=[  889], 10.00th=[  906], 20.00th=[  922],
+     | 30.00th=[  947], 40.00th=[  971], 50.00th=[  988], 60.00th=[ 1029],
+     | 70.00th=[ 1074], 80.00th=[ 1123], 90.00th=[ 1188], 95.00th=[ 1319],
+     | 99.00th=[ 2180], 99.50th=[ 2802], 99.90th=[ 4080], 99.95th=[ 4080],
+     | 99.99th=[ 4080]
+   bw (  KiB/s): min=120064, max=120064, per=100.00%, avg=120064.00, stdev= 0.00, samples=1
+   iops        : min=  938, max=  938, avg=938.00, stdev= 0.00, samples=1
+  lat (usec)   : 1000=52.54%
+  lat (msec)   : 2=44.92%, 4=2.34%, 10=0.20%
+  cpu          : usr=0.37%, sys=14.10%, ctx=16909, majf=0, minf=7
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,512,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+  WRITE: bw=117MiB/s (123MB/s), 117MiB/s-117MiB/s (123MB/s-123MB/s), io=64.0MiB (67.1MB), run=547-547msec
+>> 2. Sequential Read (128KB, 64MB):
+Silo-CSI-S3-seq-read: (g=0): rw=read, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Silo-CSI-S3-seq-read: Laying out IO file (1 file / 64MiB)
+
+Silo-CSI-S3-seq-read: (groupid=0, jobs=1): err= 0: pid=136: Tue Oct 27 22:16:11 2026
+  read: IOPS=3240, BW=405MiB/s (425MB/s)(64.0MiB/158msec)
+    clat (usec): min=5, max=68300, avg=286.19, stdev=3569.60
+     lat (usec): min=5, max=68301, avg=286.27, stdev=3569.63
+    clat percentiles (usec):
+     |  1.00th=[    6],  5.00th=[   18], 10.00th=[   26], 20.00th=[   37],
+     | 30.00th=[   48], 40.00th=[   58], 50.00th=[   69], 60.00th=[   75],
+     | 70.00th=[   83], 80.00th=[   91], 90.00th=[  105], 95.00th=[  124],
+     | 99.00th=[  237], 99.50th=[  400], 99.90th=[68682], 99.95th=[68682],
+     | 99.99th=[68682]
+  lat (usec)   : 10=4.10%, 20=1.37%, 50=26.56%, 100=56.25%, 250=10.74%
+  lat (usec)   : 500=0.59%
+  lat (msec)   : 50=0.20%, 100=0.20%
+  cpu          : usr=0.00%, sys=15.92%, ctx=258, majf=0, minf=39
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=512,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=405MiB/s (425MB/s), 405MiB/s-405MiB/s (425MB/s-425MB/s), io=64.0MiB (67.1MB), run=158-158msec
+>> 3. Random 4KB Read/Write (4KB, 16MB, 70/30 read/write):
+Silo-CSI-S3-rand-rw: (g=0): rw=randrw, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=sync, iodepth=1
+fio-3.36
+Starting 1 process
+Silo-CSI-S3-rand-rw: Laying out IO file (1 file / 16MiB)
+
+Silo-CSI-S3-rand-rw: (groupid=0, jobs=1): err= 0: pid=151: Tue Oct 27 22:16:12 2026
+  read: IOPS=12.0k, BW=46.7MiB/s (49.0MB/s)(11.0MiB/236msec)
+    clat (usec): min=10, max=11232, avg=42.81, stdev=309.38
+     lat (usec): min=10, max=11232, avg=42.89, stdev=309.40
+    clat percentiles (usec):
+     |  1.00th=[   11],  5.00th=[   11], 10.00th=[   12], 20.00th=[   12],
+     | 30.00th=[   14], 40.00th=[   21], 50.00th=[   26], 60.00th=[   29],
+     | 70.00th=[   32], 80.00th=[   36], 90.00th=[   43], 95.00th=[   55],
+     | 99.00th=[  180], 99.50th=[  578], 99.90th=[ 6849], 99.95th=[ 7832],
+     | 99.99th=[11207]
+  write: IOPS=5389, BW=21.1MiB/s (22.1MB/s)(5088KiB/236msec); 0 zone resets
+    clat (usec): min=41, max=1048, avg=82.61, stdev=38.11
+     lat (usec): min=41, max=1048, avg=82.73, stdev=38.16
+    clat percentiles (usec):
+     |  1.00th=[   45],  5.00th=[   50], 10.00th=[   55], 20.00th=[   63],
+     | 30.00th=[   71], 40.00th=[   76], 50.00th=[   81], 60.00th=[   85],
+     | 70.00th=[   90], 80.00th=[   96], 90.00th=[  105], 95.00th=[  119],
+     | 99.00th=[  159], 99.50th=[  182], 99.90th=[  404], 99.95th=[ 1045],
+     | 99.99th=[ 1045]
+  lat (usec)   : 20=27.17%, 50=39.23%, 100=28.32%, 250=4.66%, 500=0.20%
+  lat (usec)   : 750=0.07%
+  lat (msec)   : 2=0.20%, 4=0.07%, 10=0.05%, 20=0.02%
+  cpu          : usr=2.55%, sys=11.49%, ctx=5377, majf=0, minf=8
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=2824,1272,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=46.7MiB/s (49.0MB/s), 46.7MiB/s-46.7MiB/s (49.0MB/s-49.0MB/s), io=11.0MiB (11.6MB), run=236-236msec
+  WRITE: bw=21.1MiB/s (22.1MB/s), 21.1MiB/s-21.1MiB/s (22.1MB/s-22.1MB/s), io=5088KiB (5210kB), run=236-236msec
+
+======================================================================
+                   BENCHMARK COMPLETED SUCCESSFULLY                   
+======================================================================
